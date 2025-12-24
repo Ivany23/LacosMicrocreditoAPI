@@ -2,10 +2,39 @@ import { IsNotEmpty, IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum GrauParentesco {
-    PARENTE = 'Parente',
+    PAI = 'Pai',
+    MAE = 'Mae',
+    FILHO = 'Filho',
+    FILHA = 'Filha',
+    IRMAO = 'Irmao',
+    IRMA = 'Irma',
+    CONJUGE = 'Conjuge',
+    TIO = 'Tio',
+    TIA = 'Tia',
+    PRIMO = 'Primo',
+    PRIMA = 'Prima',
+    SOBRINHO = 'Sobrinho',
+    SOBRINHA = 'Sobrinha',
+    AVO_M = 'Avô',
+    AVO_F = 'Avó',
+    CUNHADO = 'Cunhado',
+    CUNHADA = 'Cunhada',
     AMIGO = 'Amigo',
-    COLEGA = 'Colega',
-    OUTRO = 'Outro'
+    COLEGA_TRABALHO = 'Colega de Trabalho',
+    VIZINHO = 'Vizinho'
+}
+
+export enum TestemunhaDocumento {
+    BI = 'BI',
+    PASSAPORTE = 'Passaporte',
+    CARTA_CONDUCAO = 'Carta de Conducao',
+    NUIT = 'NUIT',
+    CONTRATO_MICROCREDITO = 'Contrato Microcredito',
+    LIVRETE = 'Livrete',
+    DIRE = 'DIRE',
+    CERTIDAO_NASCIMENTO = 'Certidao de Nascimento',
+    CERTIFICADO_HABILITACOES = 'Certificado de Habilitacoes',
+    DUAT = 'DUAT'
 }
 
 export class CreateTestemunhaDto {
@@ -24,10 +53,15 @@ export class CreateTestemunhaDto {
     @IsString()
     telefone: string;
 
-    @ApiProperty({ example: GrauParentesco.PARENTE, description: 'Grau de parentesco', enum: GrauParentesco })
+    @ApiProperty({ example: GrauParentesco.AMIGO, description: 'Grau de parentesco', enum: GrauParentesco })
     @IsNotEmpty()
     @IsEnum(GrauParentesco)
-    grauParentesco: string;
+    grauParentesco: GrauParentesco;
+
+    @ApiProperty({ example: TestemunhaDocumento.BI, description: 'Documento da testemunha', enum: TestemunhaDocumento })
+    @IsNotEmpty()
+    @IsEnum(TestemunhaDocumento)
+    testemunhaDocumento: TestemunhaDocumento;
 }
 
 export class UpdateTestemunhaDto {
@@ -41,8 +75,13 @@ export class UpdateTestemunhaDto {
     @IsString()
     telefone?: string;
 
-    @ApiPropertyOptional({ example: 'Primo', enum: GrauParentesco })
+    @ApiPropertyOptional({ example: GrauParentesco.PRIMO, enum: GrauParentesco })
     @IsOptional()
     @IsEnum(GrauParentesco)
-    grauParentesco?: string;
+    grauParentesco?: GrauParentesco;
+
+    @ApiPropertyOptional({ example: TestemunhaDocumento.PASSAPORTE, enum: TestemunhaDocumento })
+    @IsOptional()
+    @IsEnum(TestemunhaDocumento)
+    testemunhaDocumento?: TestemunhaDocumento;
 }

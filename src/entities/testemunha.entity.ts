@@ -18,6 +18,9 @@ export class Testemunha {
     @Column({ type: 'text', name: 'grau_parentesco', nullable: false })
     grauParentesco: string;
 
+    @Column({ type: 'text', name: 'testemunha_documento', nullable: false })
+    testemunhaDocumento: string;
+
     @ManyToOne(() => Cliente, cliente => cliente.testemunhas)
     @JoinColumn({ name: 'cliente_id' })
     cliente: Cliente;
