@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, IsDateString, IsOptional, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsDateString, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum EmprestimoStatus {
@@ -22,16 +22,6 @@ export class CreateEmprestimoDto {
     @IsNotEmpty()
     @IsDateString()
     dataVencimento: string;
-
-    @ApiPropertyOptional({
-        description: 'Status inicial do empréstimo',
-        enum: EmprestimoStatus,
-        default: EmprestimoStatus.ATIVO,
-        example: EmprestimoStatus.ATIVO
-    })
-    @IsOptional()
-    @IsEnum(EmprestimoStatus)
-    status?: EmprestimoStatus;
 }
 
 export class UpdateEmprestimoDto {
@@ -44,13 +34,4 @@ export class UpdateEmprestimoDto {
     @IsOptional()
     @IsDateString()
     dataVencimento?: string;
-
-    @ApiPropertyOptional({
-        description: 'Novo status',
-        enum: EmprestimoStatus,
-        example: EmprestimoStatus.PAGO
-    })
-    @IsOptional()
-    @IsEnum(EmprestimoStatus)
-    status?: EmprestimoStatus;
 }
