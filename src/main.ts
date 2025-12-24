@@ -3,40 +3,89 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+let cachedApp: any;
+
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
+    if (!cachedApp) {
+        const app = await NestFactory.create(AppModule);
 
-    app.enableCors({
-        origin: '*',
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-        credentials: true,
-    });
+        app.enableCors({
+            origin: '*',
+            methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+            credentials: true,
+        });
 
-    app.useGlobalPipes(
-        new ValidationPipe({
-            whitelist: true,
-            forbidNonWhitelisted: true,
-            transform: true,
-        }),
-    );
+        app.useGlobalPipes(
+            new ValidationPipe({
+                whitelist: true,
+                forbidNonWhitelisted: true,
+                transform: true,
+            }),
+        );
 
-    app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+        app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
-    const config = new DocumentBuilder()
-        .setTitle('API de Gestão de Clientes e Empréstimos')
-        .setDescription('Documentação completa da API com Suporte a Upload e Extratos')
-        .setVersion('1.0')
-        .addBearerAuth() // Configuração padrão, compatível com @ApiBearerAuth() sem argumentos
-        .build();
+        const config = new DocumentBuilder()
+            .setTitle('API de Gestão de Clientes e Empréstimos')
+            .setDescription('Documentação completa da API com Suporte a Upload e Extratos')
+            .setVersion('1.0')
+            .addBearerAuth()
+            .build();
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document);
+        const document = SwaggerModule.createDocument(app, config);
+        SwaggerModule.setup('api', app, document);
 
-    const port = process.env.PORT || 3000;
-    await app.listen(port);
-
-    console.log(`API rodando em http://localhost:${port}`);
-    console.log(`Documentação Swagger em http://localhost:${port}/api`);
+        await app.init();
+        cachedApp = app.getHttpAdapter().getInstance();
+    }
+    return cachedApp;
 }
 
-bootstrap();
+// Export the handler for Vercel
+export default async (req: any, res: any) => {
+    const app = await bootstrap();
+    app(req, res);
+};
+
+// Local development
+if (process.env.NODE_ENV !== 'production') {
+    async function startLocal() {
+        const app = await NestFactory.create(AppModule);
+
+        app.enableCors({
+            origin: '*',
+            methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+            credentials: true,
+        });
+
+        app.useGlobalPipes(
+            new ValidationPipe({
+                whitelist: true,
+                forbidNonWhitelisted: true,
+                transform: true,
+            }),
+        );
+
+        app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+
+        const config = new DocumentBuilder()
+            .setTitle('API de Gestão de Clientes e Empréstimos')
+            .setDescription('Documentação completa da API com Suporte a Upload e Extratos')
+            .setVersion('1.0')
+            .addBearerAuth()
+            .build();
+
+        const document = SwaggerModule.createDocument(app, config);
+        SwaggerModule.setup('api', app, document);
+
+        const port = process.env.PORT || 3000;
+        await app.listen(port);
+        console.log(`API rodando em http://localhost:${port}`);
+    }
+    // Only run listen if not on Vercel (Vercel sets some env vars, but checking NODE_ENV is common)
+    // Actually Vercel environment usually has VERCEL=1
+    if (!process.env.VERCEL) {
+        startLocal();
+    }
+}
+
