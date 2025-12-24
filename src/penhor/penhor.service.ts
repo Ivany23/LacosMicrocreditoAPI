@@ -14,7 +14,7 @@ export class PenhorService {
     async create(createPenhorDto: CreatePenhorDto) {
         const penhor = this.penhorRepository.create({
             ...createPenhorDto,
-            dataPenhora: new Date(createPenhorDto.dataPenhora),
+            dataPenhora: new Date(),
         });
         return await this.penhorRepository.save(penhor);
     }

@@ -19,11 +19,6 @@ export class CreatePenhorDto {
     @IsNumber()
     valorEstimado: number;
 
-    @ApiProperty({ description: 'Data da penhora' })
-    @IsNotEmpty()
-    @IsDateString()
-    dataPenhora: string;
-
     @ApiPropertyOptional({ type: 'string', format: 'binary', description: 'Imagem do item' })
     @IsOptional()
     imagemPenhor?: any;
