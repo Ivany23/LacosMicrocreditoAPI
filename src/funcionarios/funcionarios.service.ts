@@ -26,7 +26,6 @@ export class FuncionariosService {
         const funcionario = this.funcionarioRepository.create({
             ...createDto,
             passwordHash,
-            dataUltimaSenha: new Date(),
         });
 
         return await this.funcionarioRepository.save(funcionario);
@@ -73,7 +72,6 @@ export class FuncionariosService {
         if (!isMatch) throw new ForbiddenException('Senha atual incorreta');
 
         funcionario.passwordHash = await bcrypt.hash(passwordDto.newPassword, 10);
-        funcionario.dataUltimaSenha = new Date();
 
         await this.funcionarioRepository.save(funcionario);
         return { message: 'Senha atualizada com sucesso' };
@@ -111,18 +109,9 @@ export class FuncionariosService {
     }
 
     /**
-     * Verifica se a senha expirou (6 meses)
+     * Verifica se a senha expirou (desativado)
      */
     isPasswordExpired(funcionario: Funcionario): boolean {
-        if (!funcionario || !funcionario.dataUltimaSenha) {
-            return false;
-        }
-
-        const seisMesesEmMs = 6 * 30 * 24 * 60 * 60 * 1000;
-        // Garante que é um objeto Date, pois do banco pode vir como string
-        const dataUltimaSenha = new Date(funcionario.dataUltimaSenha);
-        const dataExpiracao = new Date(dataUltimaSenha.getTime() + seisMesesEmMs);
-
-        return new Date() > dataExpiracao;
+        return false;
     }
 }

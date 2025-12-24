@@ -47,7 +47,4 @@ export class Funcionario {
 
     @Column({ name: 'data_bloqueio', type: 'timestamptz', nullable: true })
     dataBloqueio: Date;
-
-    @Column({ name: 'data_ultima_senha', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
-    dataUltimaSenha: Date;
 }
