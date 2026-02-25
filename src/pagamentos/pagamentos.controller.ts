@@ -12,12 +12,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PagamentosController {
     constructor(private readonly pagamentosService: PagamentosService) { }
 
-    @Post()
-    @ApiOperation({ summary: 'Registrar um novo pagamento' })
-    @ApiResponse({ status: 201, description: 'Pagamento registrado com sucesso.' })
-    create(@Body() createPagamentoDto: CreatePagamentoDto) {
-        return this.pagamentosService.create(createPagamentoDto);
-    }
+
 
     @Post('diario')
     @ApiOperation({

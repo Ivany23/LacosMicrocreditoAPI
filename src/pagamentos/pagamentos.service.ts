@@ -235,65 +235,6 @@ export class PagamentosService {
         }
     }
 
-    /**
-     * ========================================================================
-     * PAGAMENTO NORMAL (Endpoint Genérico)
-     * ========================================================================
-     */
-    async create(createPagamentoDto: CreatePagamentoDto) {
-        return await this.dataSource.transaction(async (manager) => {
-            const DATA_REGISTRO = new Date();
-            const VALOR_REGISTRO = Number(createPagamentoDto.valorPago);
-
-            const emprestimo = await manager.findOne(Emprestimo, {
-                where: { emprestimoId: createPagamentoDto.emprestimoId },
-                relations: ['cliente']
-            });
-
-            if (!emprestimo) throw new NotFoundException('Empréstimo não encontrado');
-            if (emprestimo.status === 'Pago') throw new ConflictException('Empréstimo já pago.');
-
-            // A. Tabela Principal
-            const novoPagamento = manager.create(Pagamento, {
-                ...createPagamentoDto,
-                dataPagamento: DATA_REGISTRO,
-                valorPago: VALOR_REGISTRO,
-                referenciaPagamento: this.gerarReferenciaAleatoria()
-            });
-            await manager.save(novoPagamento);
-
-            // B. Tabela Calendário (Plano Diário) - Sincronização
-            const planoSync = manager.create(PlanoPagamentoDiario, {
-                emprestimoId: emprestimo.emprestimoId,
-                dataReferencia: DATA_REGISTRO,
-                valorPrevisto: 0,
-                valorPago: VALOR_REGISTRO,
-                status: 'Pago',
-                dataCalculo: DATA_REGISTRO
-            });
-            await manager.save(planoSync);
-
-            // C. Atualizar Status
-            const { saldoDevedor } = await this.calcularTotais(manager, emprestimo.emprestimoId, Number(emprestimo.valor));
-            const novoSaldo = saldoDevedor; // Já considera o que acabamos de salvar se calcularTotais olhar para o DB, CUIDADO!
-            // transaction isolation level pode esconder o dado nao commitado, mas dentro do mesmo manager ele deveria ver?
-            // TypeORM em transactions geralmente vê updates feitos pelo mesmo manager.
-            // Mas `calcularTotais` faz query na tabela Pagamento. Se acabamos de salvar `novoPagamento`, ele DEVE aparecer.
-
-            const statusAtualizado = await this.atualizarStatusEmprestimo(manager, emprestimo, novoSaldo);
-
-            return {
-                sucesso: true,
-                mensagem: statusAtualizado === 'Pago' ? '✅ Quitado!' : '✅ Pagamento registrado.',
-                pagamento: {
-                    id: novoPagamento.pagamentoId,
-                    referencia: novoPagamento.referenciaPagamento,
-                    valor: VALOR_REGISTRO
-                },
-                saldoRestante: novoSaldo.toFixed(2)
-            };
-        });
-    }
 
     // --- HELPER METHODS (Private) ---
 
