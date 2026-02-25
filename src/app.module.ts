@@ -21,6 +21,7 @@ import { Pagamento } from './entities/pagamento.entity';
 import { Penalizacao } from './entities/penalizacao.entity';
 import { Notificacao } from './entities/notificacao.entity';
 import { Funcionario } from './entities/funcionario.entity';
+import { PlanoPagamentoDiario } from './entities/plano-pagamento-diario.entity';
 
 import { AppController } from './app.controller';
 import { PagamentosModule } from './pagamentos/pagamentos.module';
@@ -52,6 +53,7 @@ import { FuncionariosModule } from './funcionarios/funcionarios.module';
                 Penalizacao,
                 Notificacao,
                 Funcionario,
+                PlanoPagamentoDiario,
             ],
             synchronize: true,
             ssl: {
