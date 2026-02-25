@@ -5,7 +5,8 @@ export enum StatusPenalizacao {
     PENDENTE = 'pendente',
     SIMULADO = 'simulado',
     APLICADA = 'aplicada',
-    CANCELADA = 'cancelada'
+    CANCELADA = 'cancelada',
+    PAGA = 'paga'
 }
 
 export class CreatePenalizacaoDto {

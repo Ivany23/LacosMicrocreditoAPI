@@ -63,18 +63,16 @@ export class PagamentosService {
 
             if (saldoDevedor <= 0) throw new ConflictException('Empréstimo já está totalmente pago');
 
-            // 3. Validar Datas (Lógica de Negócio Específica do Diário)
+            // 3. Validar Datas e Recalcular Diária (Sem bloquear dias atrasados)
             const dataVencimento = new Date(emprestimo.dataVencimento);
             const diasRestantes = Math.ceil((dataVencimento.getTime() - DATA_REGISTRO.getTime()) / (1000 * 60 * 60 * 24));
 
-            if (diasRestantes < 0) {
-                // Permite o pagamento mas avisa? Ou bloqueia como no original? 
-                // Original: throw BadRequestException. Mantendo lógica original.
-                throw new BadRequestException('A data de vencimento já passou. Use o sistema de pagamento regular ou renegociação.');
-            }
+            // Garante que não dividimos por zero e tratamos valores pagos maiores que o saldo
+            const diasRestantesTratado = Math.max(1, diasRestantes);
+            const novoSaldoEstimadoFuturo = Math.max(0, saldoDevedor - VALOR_REGISTRO);
 
             // Recalculo informativo (Lógica de Negócio)
-            const valorDiarioRecalculado = diasRestantes > 0 ? ((saldoDevedor - VALOR_REGISTRO) / diasRestantes) : 0;
+            const valorDiarioRecalculado = novoSaldoEstimadoFuturo / diasRestantesTratado;
 
             // 4. REGISTRO (Atomicidade via Transaction Manager)
 
@@ -273,6 +271,17 @@ export class PagamentosService {
 
         if (novoSaldoDevedor <= 1) { // Margem de erro pequena para float
             novoStatus = 'Pago';
+
+            // Baixar (quitar) todas as penalizações pendentes se o saldo chegou a zero
+            await manager.createQueryBuilder()
+                .update(Penalizacao)
+                .set({ status: StatusPenalizacao.PAGA })
+                .where("emprestimoId = :id AND status IN (:...status)", {
+                    id: emprestimo.emprestimoId,
+                    status: [StatusPenalizacao.PENDENTE, StatusPenalizacao.APLICADA]
+                })
+                .execute();
+
         } else if (new Date(emprestimo.dataVencimento) < new Date()) {
             novoStatus = 'Inadimplente';
         }
