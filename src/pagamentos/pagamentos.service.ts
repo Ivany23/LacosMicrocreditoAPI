@@ -124,34 +124,6 @@ export class PagamentosService {
         return Math.ceil((dataVencimento.getTime() - dataInicio.getTime()) / (1000 * 60 * 60 * 24));
     }
 
-    async obterHistoricoPagamentosDiarios(emprestimoId: string) {
-        const emprestimo = await this.loanRepo.findOne({ where: { emprestimoId } });
-        if (!emprestimo) throw new NotFoundException('Empréstimo não encontrado');
-
-        const planos = await this.dailyPlanRepo.find({
-            where: { emprestimoId },
-            order: { dataReferencia: 'ASC' }
-        });
-
-        const totalPago = planos.reduce((sum, p) => sum + Number(p.valorPago), 0);
-        const valorPrincipal = Number(emprestimo.valor);
-        const valorTotal = valorPrincipal * (1 + this.TAXA_JUROS);
-
-        return {
-            sucesso: true,
-            emprestimo: {
-                id: emprestimo.emprestimoId,
-                valorTotal: Number(valorTotal.toFixed(2)),
-                status: emprestimo.status
-            },
-            historico: planos.map(p => ({
-                data: p.dataReferencia,
-                valorPago: Number(p.valorPago),
-                status: p.status
-            }))
-        };
-    }
-
     async obterCalendarioFinanceiro(emprestimoId: string) {
         try {
             const emprestimo = await this.loanRepo.findOne({ where: { emprestimoId } });
@@ -411,6 +383,7 @@ export class PagamentosService {
     async findByEmprestimo(emprestimoId: string) {
         return await this.paymentRepo.find({
             where: { emprestimoId },
+            relations: ['cliente', 'emprestimo'],
             order: { dataPagamento: 'DESC' }
         });
     }

@@ -51,19 +51,6 @@ Sistema inteligente de pagamento diário que:
         return this.pagamentosService.registrarPagamentoDiario(dto);
     }
 
-    @Get('diario/:emprestimoId')
-    @ApiOperation({
-        summary: 'Obter Histórico de Pagamentos Diários',
-        description: 'Retorna todo o histórico de pagamentos diários de um empréstimo, incluindo valores previstos vs pagos.'
-    })
-    @ApiResponse({
-        status: 200,
-        description: 'Histórico retornado com sucesso.'
-    })
-    obterHistoricoDiario(@Param('emprestimoId') emprestimoId: string) {
-        return this.pagamentosService.obterHistoricoPagamentosDiarios(emprestimoId);
-    }
-
     @Get('calendario/:emprestimoId')
     @ApiOperation({
         summary: 'Calendário Financeiro Inteligente',
