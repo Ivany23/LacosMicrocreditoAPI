@@ -35,9 +35,4 @@ export class CreatePagamentoDto {
     @IsNotEmpty()
     @IsEnum(MetodoPagamento)
     metodoPagamento: MetodoPagamento;
-
-    @ApiPropertyOptional({ example: '8412345678W', description: 'Referência do pagamento (ex: ID da transação)' })
-    @IsOptional()
-    @IsString()
-    referenciaPagamento?: string;
 }
