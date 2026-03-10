@@ -17,7 +17,7 @@ export class PagamentosService {
 
     constructor(
         @InjectRepository(Pagamento)
-        private paymentRepo: Repository<Pagamento>, 
+        private paymentRepo: Repository<Pagamento>,
         @InjectRepository(Emprestimo)
         private loanRepo: Repository<Emprestimo>,
         @InjectRepository(Penalizacao)
@@ -31,7 +31,7 @@ export class PagamentosService {
     private gerarReferenciaAleatoria(): string {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let result = '';
-        const timestamp = Date.now().toString().slice(-4); 
+        const timestamp = Date.now().toString().slice(-4);
         for (let i = 0; i < 6; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
@@ -62,7 +62,7 @@ export class PagamentosService {
             const novoPlano = manager.create(PlanoPagamentoDiario, {
                 emprestimoId: emprestimo.emprestimoId,
                 dataReferencia: DATA_REGISTRO,
-                valorPrevisto: valorDiarioRecalculado, 
+                valorPrevisto: valorDiarioRecalculado,
                 valorPago: VALOR_REGISTRO,
                 status: 'Pago',
                 dataCalculo: DATA_REGISTRO
@@ -80,7 +80,7 @@ export class PagamentosService {
             await manager.save(novoPagamento);
 
             const novoSaldoDevedor = saldoDevedor - VALOR_REGISTRO;
-            const statusAtualizado = await this.atualizarStatusEmprestimo(manager, emprestimo, novoSaldoDevedor);
+            const statusAtualizado = await this.atualizarStatusEmprestimo(manager, emprestimo, novoSaldoDevedor, VALOR_REGISTRO);
 
             return {
                 sucesso: true,
@@ -161,20 +161,20 @@ export class PagamentosService {
                 if (info && info.valorPago > 0) {
                     diaInfo.status = 'PAGO';
                     diaInfo.valor = info.valorPago;
-                    
+
                 } else if (isPast) {
                     diaInfo.status = 'SEM PAGAMENTO';
                     diaInfo.valor = 0;
-                    
+
                 } else if (isToday) {
                     diaInfo.status = 'HOJE';
-                    
+
                 }
 
                 if (saldoDevedor < 1 && !isPast && (!info || info.valorPago === 0)) {
                     diaInfo.status = 'QUITADO';
                     diaInfo.valor = 0;
-                    
+
                 }
 
                 calendario.push(diaInfo);
@@ -196,7 +196,7 @@ export class PagamentosService {
     }
 
     private async calcularTotais(manager: EntityManager, emprestimoId: string, valorPrincipal: number) {
-        
+
         const totalPagoGeral = await manager
             .createQueryBuilder(Pagamento, 'p')
             .where('p.emprestimoId = :id', { id: emprestimoId })
@@ -207,7 +207,7 @@ export class PagamentosService {
 
         const penalizacoes = await manager.find(Penalizacao, { where: { emprestimoId } });
         const totalPenalizacoes = penalizacoes
-            .filter(p => [StatusPenalizacao.PENDENTE, StatusPenalizacao.APLICADA].includes(p.status as any)) 
+            .filter(p => [StatusPenalizacao.PENDENTE, StatusPenalizacao.APLICADA].includes(p.status as any))
             .reduce((sum, p) => sum + Number(p.valor), 0);
 
         const valorLucro = valorPrincipal * this.TAXA_JUROS;
@@ -225,10 +225,10 @@ export class PagamentosService {
         };
     }
 
-    private async atualizarStatusEmprestimo(manager: EntityManager, emprestimo: Emprestimo, novoSaldoDevedor: number): Promise<string> {
+    private async atualizarStatusEmprestimo(manager: EntityManager, emprestimo: Emprestimo, novoSaldoDevedor: number, valorPago: number): Promise<string> {
         let novoStatus = 'Ativo';
 
-        if (novoSaldoDevedor <= 1) { 
+        if (novoSaldoDevedor <= 1) {
             novoStatus = 'Pago';
 
             await manager.createQueryBuilder()
@@ -250,8 +250,8 @@ export class PagamentosService {
         }
 
         const msg = novoStatus === 'Pago'
-            ? `🎉 Parabéns! Empréstimo #${emprestimo.emprestimoId} totalmente quitado!`
-            : `Pagamento processado. Saldo restante: ${novoSaldoDevedor.toFixed(2)}`;
+            ? `🎉 Recebemos ${valorPago.toLocaleString()} MZN. Empréstimo #${emprestimo.emprestimoId} totalmente quitado!`
+            : `Pagamento de ${valorPago.toLocaleString()} MZN processado com sucesso. Saldo restante: ${novoSaldoDevedor.toFixed(2)} MZN`;
 
         await this.notificacoesService.create({
             clienteId: emprestimo.clienteId,
