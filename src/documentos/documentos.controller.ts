@@ -23,6 +23,8 @@ export class DocumentosController {
     ) {
         if (file) {
             createDocumentoDto.arquivo = file.buffer;
+            (createDocumentoDto as any).mimetype = file.mimetype;
+            (createDocumentoDto as any).nomeArquivo = file.originalname;
         }
         return this.documentosService.create(createDocumentoDto);
     }
@@ -56,6 +58,8 @@ export class DocumentosController {
     ) {
         if (file) {
             updateDocumentoDto.arquivo = file.buffer;
+            (updateDocumentoDto as any).mimetype = file.mimetype;
+            (updateDocumentoDto as any).nomeArquivo = file.originalname;
         }
         return this.documentosService.update(id, updateDocumentoDto);
     }
@@ -71,7 +75,9 @@ export class DocumentosController {
     async getArquivo(@Param('id') id: string, @Res() res: Response) {
         const doc = await this.documentosService.findOne(id);
         if (!doc || !doc.arquivo) throw new NotFoundException('Arquivo não encontrado');
-        res.setHeader('Content-Disposition', 'inline');
+
+        res.setHeader('Content-Type', doc.mimetype || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${doc.nomeArquivo || 'documento'}"`);
         res.send(doc.arquivo);
     }
 }

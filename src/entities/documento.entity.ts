@@ -16,6 +16,12 @@ export class Documento {
     @Column({ type: 'text', name: 'numero_documento', nullable: false, unique: true })
     numeroDocumento: string;
 
+    @Column({ type: 'text', name: 'mimetype', nullable: true })
+    mimetype: string;
+
+    @Column({ type: 'text', name: 'nome_arquivo', nullable: true })
+    nomeArquivo: string;
+
     @Exclude()
     @Column({ type: 'bytea', nullable: true })
     arquivo: Buffer;
