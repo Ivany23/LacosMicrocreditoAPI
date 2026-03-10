@@ -12,8 +12,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class PagamentosController {
     constructor(private readonly pagamentosService: PagamentosService) { }
 
-
-
     @Post('diario')
     @ApiOperation({
         summary: 'Registrar Pagamento Diário com Recalculação Automática',

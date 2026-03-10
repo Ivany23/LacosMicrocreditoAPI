@@ -17,7 +17,7 @@ export class PagamentosService {
 
     constructor(
         @InjectRepository(Pagamento)
-        private paymentRepo: Repository<Pagamento>, // Renamed for clarity internally, or keep same
+        private paymentRepo: Repository<Pagamento>, 
         @InjectRepository(Emprestimo)
         private loanRepo: Repository<Emprestimo>,
         @InjectRepository(Penalizacao)
@@ -31,63 +31,44 @@ export class PagamentosService {
     private gerarReferenciaAleatoria(): string {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let result = '';
-        const timestamp = Date.now().toString().slice(-4); // Últimos 4 dígitos para unicidade temporal
+        const timestamp = Date.now().toString().slice(-4); 
         for (let i = 0; i < 6; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return `LACM-${result}${timestamp}`;
     }
 
-    /**
-     * ========================================================================
-     * PAGAMENTO DIÁRIO COM RECALCULAÇÃO AUTOMÁTICA
-     * ========================================================================
-     */
-    /**
-     * ========================================================================
-     * PAGAMENTO DIÁRIO COM RECALCULAÇÃO AUTOMÁTICA (Transactional)
-     * ========================================================================
-     */
     async registrarPagamentoDiario(dto: RegistrarPagamentoDiarioDto) {
         return await this.dataSource.transaction(async (manager) => {
             const DATA_REGISTRO = new Date();
             const VALOR_REGISTRO = Number(dto.valorPago);
 
-            // 1. Validar Empréstimo
             const emprestimo = await manager.findOne(Emprestimo, { where: { emprestimoId: dto.emprestimoId } });
             if (!emprestimo) throw new NotFoundException('Empréstimo não encontrado');
             if (emprestimo.status === 'Pago') throw new ConflictException('Este empréstimo já foi totalmente pago');
 
-            // 2. Calcular Saldos e Validar
             const { saldoDevedor, valorTotalComPenalizacoes, totalJaPago } = await this.calcularTotais(manager, emprestimo.emprestimoId, Number(emprestimo.valor));
 
             if (saldoDevedor <= 0) throw new ConflictException('Empréstimo já está totalmente pago');
 
-            // 3. Validar Datas e Recalcular Diária (Sem bloquear dias atrasados)
             const dataVencimento = new Date(emprestimo.dataVencimento);
             const diasRestantes = Math.ceil((dataVencimento.getTime() - DATA_REGISTRO.getTime()) / (1000 * 60 * 60 * 24));
 
-            // Garante que não dividimos por zero e tratamos valores pagos maiores que o saldo
             const diasRestantesTratado = Math.max(1, diasRestantes);
             const novoSaldoEstimadoFuturo = Math.max(0, saldoDevedor - VALOR_REGISTRO);
 
-            // Recalculo informativo (Lógica de Negócio)
             const valorDiarioRecalculado = novoSaldoEstimadoFuturo / diasRestantesTratado;
 
-            // 4. REGISTRO (Atomicidade via Transaction Manager)
-
-            // A. Plano Diário
             const novoPlano = manager.create(PlanoPagamentoDiario, {
                 emprestimoId: emprestimo.emprestimoId,
                 dataReferencia: DATA_REGISTRO,
-                valorPrevisto: valorDiarioRecalculado, // Sugestão para o PRÓXIMO pagamento
+                valorPrevisto: valorDiarioRecalculado, 
                 valorPago: VALOR_REGISTRO,
                 status: 'Pago',
                 dataCalculo: DATA_REGISTRO
             });
             await manager.save(novoPlano);
 
-            // B. Pagamento Geral
             const novoPagamento = manager.create(Pagamento, {
                 emprestimoId: emprestimo.emprestimoId,
                 clienteId: emprestimo.clienteId,
@@ -98,7 +79,6 @@ export class PagamentosService {
             });
             await manager.save(novoPagamento);
 
-            // 5. Atualizar Status do Empréstimo
             const novoSaldoDevedor = saldoDevedor - VALOR_REGISTRO;
             const statusAtualizado = await this.atualizarStatusEmprestimo(manager, emprestimo, novoSaldoDevedor);
 
@@ -133,25 +113,10 @@ export class PagamentosService {
 
             const { saldoDevedor, totalJaPago, valorTotalComPenalizacoes } = await (this.dataSource.transaction(m => this.calcularTotais(m, emprestimoId, Number(emprestimo.valor))));
 
-            // Simulação local sem transaction para leitura de calendario? 
-            // O ideal seria usar o helper, mas ele pede EntityManager.
-            // Para leitura, podemos usar um gerenciador simples ou criar um on-the-fly.
-            // Mas calcularTotais é privado. Vamos usar uma transaction readonly implicita aqui ou injetar o manager do repo?
-            // Vamos usar o dataSource.manager para leitura direta.
-            // Update: A linha acima ja chama transaction so pra usar o helper que pede manager. É pouco performatico mas funciona.
-            // Melhor: fazer overload do helper? Nao, mantenha simples.
-
-            // Mas espere, obterCalendarioFinanceiro não deveria escrever nada, então transaction aqui é só pro helper funcionar.
-            // Tudo bem.
-
-            // A seguir, precisamos dos pagamentos individuais para mapear.
-            // Podemos usar this.paymentRepo.find
             const todosPagamentos = await this.paymentRepo.find({
                 where: { emprestimoId },
                 order: { dataPagamento: 'ASC' }
             });
-
-
 
             const calendario = [];
             const dataInicio = new Date(emprestimo.dataEmprestimo);
@@ -163,7 +128,6 @@ export class PagamentosService {
                 throw new BadRequestException('Datas inválidas no banco.');
             }
 
-            // Calcular pagamentos por dia para o calendário
             const pagamentosMap = new Map();
             todosPagamentos.forEach(p => {
                 const d = new Date(p.dataPagamento).toISOString().split('T')[0];
@@ -172,11 +136,9 @@ export class PagamentosService {
                 pagamentosMap.set(d, current);
             });
 
-            // Gerar dias
             let currentDate = new Date(dataInicio);
             let safety = 0;
 
-            // Recalculo dinâmico de valor sugerido para dias futuros
             let diasRestantesHoje = 0;
             let tempD = new Date(hoje < dataInicio ? dataInicio : hoje);
             while (tempD <= dataVencimento) { diasRestantesHoje++; tempD.setDate(tempD.getDate() + 1); }
@@ -199,20 +161,20 @@ export class PagamentosService {
                 if (info && info.valorPago > 0) {
                     diaInfo.status = 'PAGO';
                     diaInfo.valor = info.valorPago;
-                    // diaInfo.cor = 'verde'; // REMOVIDO: UI Logic no Frontend
+                    
                 } else if (isPast) {
                     diaInfo.status = 'SEM PAGAMENTO';
                     diaInfo.valor = 0;
-                    // diaInfo.cor = 'vermelho';
+                    
                 } else if (isToday) {
                     diaInfo.status = 'HOJE';
-                    // diaInfo.cor = 'azul';
+                    
                 }
 
                 if (saldoDevedor < 1 && !isPast && (!info || info.valorPago === 0)) {
                     diaInfo.status = 'QUITADO';
                     diaInfo.valor = 0;
-                    // diaInfo.cor = 'verde-claro';
+                    
                 }
 
                 calendario.push(diaInfo);
@@ -233,11 +195,8 @@ export class PagamentosService {
         }
     }
 
-
-    // --- HELPER METHODS (Private) ---
-
     private async calcularTotais(manager: EntityManager, emprestimoId: string, valorPrincipal: number) {
-        // Usa o manager da transação para garantir consistência
+        
         const totalPagoGeral = await manager
             .createQueryBuilder(Pagamento, 'p')
             .where('p.emprestimoId = :id', { id: emprestimoId })
@@ -248,7 +207,7 @@ export class PagamentosService {
 
         const penalizacoes = await manager.find(Penalizacao, { where: { emprestimoId } });
         const totalPenalizacoes = penalizacoes
-            .filter(p => [StatusPenalizacao.PENDENTE, StatusPenalizacao.APLICADA].includes(p.status as any)) // Cast rapido se Enum nao transpirar
+            .filter(p => [StatusPenalizacao.PENDENTE, StatusPenalizacao.APLICADA].includes(p.status as any)) 
             .reduce((sum, p) => sum + Number(p.valor), 0);
 
         const valorLucro = valorPrincipal * this.TAXA_JUROS;
@@ -269,10 +228,9 @@ export class PagamentosService {
     private async atualizarStatusEmprestimo(manager: EntityManager, emprestimo: Emprestimo, novoSaldoDevedor: number): Promise<string> {
         let novoStatus = 'Ativo';
 
-        if (novoSaldoDevedor <= 1) { // Margem de erro pequena para float
+        if (novoSaldoDevedor <= 1) { 
             novoStatus = 'Pago';
 
-            // Baixar (quitar) todas as penalizações pendentes se o saldo chegou a zero
             await manager.createQueryBuilder()
                 .update(Penalizacao)
                 .set({ status: StatusPenalizacao.PAGA })
@@ -291,14 +249,10 @@ export class PagamentosService {
             await manager.save(emprestimo);
         }
 
-        // Notificar
         const msg = novoStatus === 'Pago'
             ? `🎉 Parabéns! Empréstimo #${emprestimo.emprestimoId} totalmente quitado!`
             : `Pagamento processado. Saldo restante: ${novoSaldoDevedor.toFixed(2)}`;
 
-        // Notificação precisa do service, que não tem Transactional Manager...
-        // O notificationService provavelmente usa seu próprio repo. É seguro chamar fora da transaction do banco
-        // OU não, idealmente deveria ser atômico. Mas vamos assumir que falha na notificação não deve reverter o pagamento financeiro.
         await this.notificacoesService.create({
             clienteId: emprestimo.clienteId,
             tipo: TipoNotificacao.CONFIRMACAO_PAGAMENTO,

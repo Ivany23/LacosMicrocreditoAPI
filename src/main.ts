@@ -33,7 +33,6 @@ async function bootstrap() {
     const document = SwaggerModule.createDocument(app, config);
     document.servers = [{ url: 'https://lacos-microcredito-api.vercel.app' }];
 
-    // Usando CDN para evitar erro 404 de assets estáticos no Vercel
     const CDN_URL = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.18.2';
 
     SwaggerModule.setup('api', app, document, {

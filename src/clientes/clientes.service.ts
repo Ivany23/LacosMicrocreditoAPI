@@ -48,9 +48,8 @@ export class ClientesService {
     }
 
     async getClientDashboard(id: string) {
-        const cliente = await this.findOne(id); // Garante que o cliente existe
+        const cliente = await this.findOne(id); 
 
-        // Buscar dados financeiros
         const emprestimos = await this.emprestimoRepository.find({ where: { clienteId: id } });
         const pagamentos = await this.pagamentoRepository.find({
             where: { emprestimo: { clienteId: id } },
@@ -58,14 +57,11 @@ export class ClientesService {
         });
         const penalizacoes = await this.penalizacaoRepository.find({ where: { clienteId: id } });
 
-        // 1. Cálculos Financeiros Básicos
         const totalPrincipal = emprestimos.reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
         const totalPago = pagamentos.reduce((acc, curr) => acc + Number(curr.valorPago || 0), 0);
         const totalPenalizacoes = penalizacoes.reduce((acc, curr) => acc + Number(curr.valor || 0), 0);
         const dividaTotal = Math.max(0, (totalPrincipal + totalPenalizacoes) - totalPago);
 
-        // 2. Status do Próximo Pagamento (ou Vencido)
-        // Normalização de status para garantir compatibilidade com diferentes convenções (Legacy vs New)
         const activeStatuses = ['Ativo', 'Inadimplente', 'APROVADO', 'EM_ANDAMENTO', 'ATRASADO'];
         const ativos = emprestimos.filter(e => activeStatuses.includes(e.status));
 
@@ -102,14 +98,12 @@ export class ClientesService {
             }
         }
 
-        // 3. Score de Crédito
         const contratosAtrasados = emprestimos.filter(e =>
             ['Inadimplente', 'ATRASADO'].includes(e.status) ||
             (new Date(e.dataVencimento) < hoje && activeStatuses.includes(e.status))
         );
         const pagamentosEmDia = pagamentos.filter(p => {
-            // Simplificação: se pagou, ok. Na lógica complexa compararia com vencimento.
-            // Assumindo que o pagamento tem data.
+            
             const emprestimo = emprestimos.find(e => e.emprestimoId === p.emprestimo.emprestimoId);
             if (!emprestimo) return true;
             return new Date(p.dataPagamento) <= new Date(emprestimo.dataVencimento);
@@ -118,7 +112,6 @@ export class ClientesService {
         let calcScore = 50 + (pagamentosEmDia * 5) - (contratosAtrasados.length * 10) - (penalizacoes.length * 5);
         const score = Math.max(0, Math.min(100, calcScore));
 
-        // 4. Gráfico Histórico (Últimos 6 meses)
         const chartData = [];
         for (let i = 5; i >= 0; i--) {
             const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);

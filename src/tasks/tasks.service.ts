@@ -22,19 +22,12 @@ export class TasksService {
         private notificacoesService: NotificacoesService,
     ) { }
 
-    /**
-     * Função auxiliar para normalizar datas - remove timezone e define para meia-noite
-     * Isso garante que comparações de datas não sejam afetadas por fuso horário
-     */
     private normalizarData(data: Date): Date {
-        const dataStr = data.toISOString().split('T')[0]; // Extrai apenas YYYY-MM-DD
+        const dataStr = data.toISOString().split('T')[0]; 
         const [ano, mes, dia] = dataStr.split('-').map(Number);
-        return new Date(ano, mes - 1, dia, 0, 0, 0, 0); // Cria data local em meia-noite
+        return new Date(ano, mes - 1, dia, 0, 0, 0, 0); 
     }
 
-    /**
-     * Calcula dias de diferença entre duas datas (ignorando horas/timezone)
-     */
     private calcularDiasEntreDatas(dataInicio: Date, dataFim: Date): number {
         const inicio = this.normalizarData(dataInicio);
         const fim = this.normalizarData(dataFim);
@@ -46,10 +39,8 @@ export class TasksService {
     async handleDailyPenalties() {
         this.logger.log('Iniciando processamento de penalidades (incluindo retroativas)...');
 
-        // Normalizar a data de hoje para meia-noite
         const startOfToday = this.normalizarData(new Date());
 
-        // Buscar todos empréstimos vencidos que ainda não estão pagos
         const overdueLoans = await this.emprestimoRepository.find({
             where: [
                 { status: 'Ativo', dataVencimento: LessThan(new Date()) },
@@ -61,26 +52,22 @@ export class TasksService {
         this.logger.log(`Analisando ${overdueLoans.length} empréstimos vencidos.`);
 
         for (const loan of overdueLoans) {
-            // IMPORTANTE: Normalizar a data de vencimento para evitar problemas de timezone
+            
             const vencimentoNormalizado = this.normalizarData(new Date(loan.dataVencimento));
 
             this.logger.log(`Empréstimo #${loan.emprestimoId} - Vencimento: ${vencimentoNormalizado.toISOString().split('T')[0]}, Hoje: ${startOfToday.toISOString().split('T')[0]}`);
 
-            // Calcular dias de atraso reais
             const diasAtrasoTotal = this.calcularDiasEntreDatas(vencimentoNormalizado, startOfToday);
             this.logger.log(`Dias de atraso calculados: ${diasAtrasoTotal}`);
 
-            // Se não há atraso real, pular
             if (diasAtrasoTotal <= 0) {
                 this.logger.log(`Empréstimo #${loan.emprestimoId} não está realmente vencido. Pulando...`);
                 continue;
             }
 
-            // Começar a verificar do dia seguinte ao vencimento
             let checkDate = new Date(vencimentoNormalizado);
             checkDate.setDate(checkDate.getDate() + 1);
 
-            // Loop para cobrir todos os dias desde o vencimento até hoje (máximo: dias de atraso reais)
             let diasProcessados = 0;
             while (checkDate <= startOfToday && diasProcessados < diasAtrasoTotal) {
 
@@ -89,7 +76,6 @@ export class TasksService {
                 const endOfDay = new Date(checkDate);
                 endOfDay.setHours(23, 59, 59, 999);
 
-                // Já existe multa para esta data HISTÓRICA?
                 const multaExistente = await this.penalizacaoRepository.findOne({
                     where: {
                         emprestimoId: loan.emprestimoId,
@@ -99,8 +85,8 @@ export class TasksService {
                 });
 
                 if (!multaExistente) {
-                    const diasAtrasoReal = diasProcessados + 1; // Dia 1, Dia 2, etc.
-                    const valorMulta = Number(loan.valor) * 0.05; // 5% do valor base
+                    const diasAtrasoReal = diasProcessados + 1; 
+                    const valorMulta = Number(loan.valor) * 0.05; 
 
                     this.logger.log(`Criando multa para Empréstimo #${loan.emprestimoId} - Dia ${diasAtrasoReal} - Data: ${checkDate.toISOString().split('T')[0]}`);
 
@@ -117,7 +103,6 @@ export class TasksService {
 
                     await this.penalizacaoRepository.save(novaMulta);
 
-                    // Se for a multa de Hoje, envia notificação
                     if (checkDate.getTime() === startOfToday.getTime()) {
                         await this.notificacoesService.create({
                             clienteId: loan.clienteId,
@@ -128,12 +113,10 @@ export class TasksService {
                     }
                 }
 
-                // Avança para o próximo dia
                 checkDate.setDate(checkDate.getDate() + 1);
                 diasProcessados++;
             }
 
-            // Atualiza status se necessário
             if (loan.status !== 'Inadimplente') {
                 loan.status = 'Inadimplente';
                 await this.emprestimoRepository.save(loan);

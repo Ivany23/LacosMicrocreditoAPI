@@ -31,8 +31,8 @@ export class RelatoriosController {
 
         const nomeCliente = resultado.nomeCliente
             .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-            .replace(/[^a-zA-Z0-9]/g, '_'); // Substitui caracteres especiais
+            .replace(/[\u0300-\u036f]/g, '') 
+            .replace(/[^a-zA-Z0-9]/g, '_'); 
 
         const dataAtual = new Date().toISOString().split('T')[0];
         const nomeArquivo = `Lacos_Extrato_EMP${emprestimoId}_${nomeCliente}_${dataAtual}.pdf`;

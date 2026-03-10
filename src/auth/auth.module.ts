@@ -27,4 +27,3 @@ import { FuncionariosModule } from '../funcionarios/funcionarios.module';
     exports: [AuthService],
 })
 export class AuthModule { }
-

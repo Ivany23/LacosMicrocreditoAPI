@@ -8,6 +8,6 @@ import { Notificacao } from '../entities/notificacao.entity';
     imports: [TypeOrmModule.forFeature([Notificacao])],
     controllers: [NotificacoesController],
     providers: [NotificacoesService],
-    exports: [NotificacoesService], // Exported to be used by Penalties/Scheduler
+    exports: [NotificacoesService], 
 })
 export class NotificacoesModule { }

@@ -15,7 +15,7 @@ export class TestemunhasService {
     ) { }
 
     async create(createTestemunhaDto: CreateTestemunhaDto, file?: Express.Multer.File) {
-        // 1. Verificar se o cliente existe
+        
         const cliente = await this.clienteRepository.findOne({
             where: { clienteId: createTestemunhaDto.clienteId }
         });
@@ -24,12 +24,10 @@ export class TestemunhasService {
             throw new NotFoundException('Cliente não encontrado');
         }
 
-        // 2. Verificar se a testemunha tem o mesmo telefone que o cliente
         if (createTestemunhaDto.telefone === cliente.telefone) {
             throw new BadRequestException('O cliente não pode ser a sua própria testemunha');
         }
 
-        // 3. Verificar se o telefone já existe na base de testemunhas
         const telefoneExistente = await this.testemunhaRepository.findOne({
             where: { telefone: createTestemunhaDto.telefone }
         });
@@ -38,7 +36,6 @@ export class TestemunhasService {
             throw new ConflictException('Este número de telefone já está registrado para outra testemunha');
         }
 
-        // 4. Verificar se o telefone pertence a algum outro cliente
         const clienteComTelefone = await this.clienteRepository.findOne({
             where: { telefone: createTestemunhaDto.telefone }
         });

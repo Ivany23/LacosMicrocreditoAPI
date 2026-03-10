@@ -20,7 +20,7 @@ export class NotificacoesService {
             this.logger.log(`Notificação [${createNotificacaoDto.tipo}] enviada para cliente ${createNotificacaoDto.clienteId}`);
             return saved;
         } catch (error) {
-            // Regra: Notificação nunca deve travar a operação principal
+            
             this.logger.error(`Falha ao disparar notificação automática: ${error.message}`);
             return null;
         }

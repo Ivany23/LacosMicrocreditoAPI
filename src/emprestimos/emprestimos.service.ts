@@ -17,12 +17,11 @@ export class EmprestimosService {
     async create(createEmprestimoDto: CreateEmprestimoDto) {
         const emprestimo = this.emprestimoRepository.create({
             ...createEmprestimoDto,
-            dataEmprestimo: new Date(), // Data/hora atual do sistema - gerada automaticamente
+            dataEmprestimo: new Date(), 
             dataVencimento: new Date(createEmprestimoDto.dataVencimento),
         });
         const savedEmprestimo = await this.emprestimoRepository.save(emprestimo);
 
-        // Notificação automática de criação
         await this.notificacoesService.create({
             clienteId: savedEmprestimo.clienteId,
             tipo: TipoNotificacao.CONFIRMACAO_EMPRESTIMO,

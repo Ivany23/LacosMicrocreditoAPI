@@ -77,7 +77,6 @@ export class AuthService {
                 throw new UnauthorizedException('Conta bloqueada. Contacte o suporte.');
             }
 
-            // Verifica se existe o hash da senha
             if (!funcionario.passwordHash) {
                 throw new UnauthorizedException('Erro na configuração da conta. Contacte o administrador.');
             }

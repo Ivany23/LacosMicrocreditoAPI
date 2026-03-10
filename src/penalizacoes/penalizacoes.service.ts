@@ -15,9 +15,6 @@ export class PenalizacoesService {
         private notificacoesService: NotificacoesService,
     ) { }
 
-    /**
-     * Função auxiliar para calcular resumo de penalizações
-     */
     private calcularResumo(penalizacoes: Penalizacao[]) {
         const pendentes = penalizacoes.filter(p =>
             p.status === StatusPenalizacao.PENDENTE || p.status === StatusPenalizacao.APLICADA
@@ -37,12 +34,10 @@ export class PenalizacoesService {
             totalRegistros: penalizacoes.length,
             diasAtrasoMaximo,
 
-            // Contagem por Status
             quantidadePendentes: pendentes.length,
             quantidadePagas: pagas.length,
             quantidadeCanceladas: canceladas.length,
 
-            // Valores
             valorTotalGeral: Number(valorTotalGeral).toFixed(2),
             valorTotalPendentes: Number(valorTotalPendentes).toFixed(2),
             valorTotalPagas: Number(valorTotalPagas).toFixed(2)
@@ -53,7 +48,6 @@ export class PenalizacoesService {
         const penalizacao = this.penalizacaoRepository.create(createPenalizacaoDto);
         const savedPenalizacao = await this.penalizacaoRepository.save(penalizacao);
 
-        // Notificação automática
         await this.notificacoesService.create({
             clienteId: createPenalizacaoDto.clienteId,
             tipo: TipoNotificacao.PENALIZACAO,
@@ -142,4 +136,3 @@ export class PenalizacoesService {
         };
     }
 }
-

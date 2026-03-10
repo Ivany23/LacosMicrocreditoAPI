@@ -83,12 +83,9 @@ export class FuncionariosService {
         return { message: 'Funcionário removido com sucesso' };
     }
 
-    /**
-     * Atualiza o timestamp de último login
-     */
     async updateLoginStats(id: string) {
         await this.funcionarioRepository.update(
-            { funcionarioId: id }, // Critério explícito
+            { funcionarioId: id }, 
             {
                 ultimoLogin: new Date(),
                 tentativasLogin: 0
@@ -96,9 +93,6 @@ export class FuncionariosService {
         );
     }
 
-    /**
-     * Incrementa tentativas de login e bloqueia se necessário
-     */
     async updateTentativasLogin(username: string) {
         const funcionario = await this.findByUsername(username);
         if (funcionario) {
@@ -111,9 +105,6 @@ export class FuncionariosService {
         }
     }
 
-    /**
-     * Verifica se a senha expirou (desativado)
-     */
     isPasswordExpired(funcionario: Funcionario): boolean {
         return false;
     }
