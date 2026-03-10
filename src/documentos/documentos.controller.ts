@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, Res, NotFoundException } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DocumentosService } from './documentos.service';
@@ -63,5 +64,14 @@ export class DocumentosController {
     @ApiOperation({ summary: 'Remover documento' })
     remove(@Param('id') id: string) {
         return this.documentosService.remove(id);
+    }
+
+    @Get(':id/arquivo')
+    @ApiOperation({ summary: 'Visualizar/Download do arquivo' })
+    async getArquivo(@Param('id') id: string, @Res() res: Response) {
+        const doc = await this.documentosService.findOne(id);
+        if (!doc || !doc.arquivo) throw new NotFoundException('Arquivo não encontrado');
+        res.setHeader('Content-Disposition', 'inline');
+        res.send(doc.arquivo);
     }
 }
