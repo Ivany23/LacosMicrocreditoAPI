@@ -118,31 +118,23 @@ export class EmprestimosService {
     }
 
     async remove(id: string) {
-        const emprestimo = await this.findOne(id);
         const queryRunner = this.dataSource.createQueryRunner();
-        
         await queryRunner.connect();
         await queryRunner.startTransaction();
-        
+
         try {
-            
             await queryRunner.manager.delete(Pagamento, { emprestimoId: id });
-            
-            
             await queryRunner.manager.delete(Penalizacao, { emprestimoId: id });
-            
-            
             await queryRunner.manager.delete(PlanoPagamentoDiario, { emprestimoId: id });
-
-            
             await queryRunner.manager.delete(Penhor, { emprestimoId: id });
-
-            
             await queryRunner.manager.delete(Testemunha, { emprestimoId: id });
             
+            const result = await queryRunner.manager.delete(Emprestimo, { emprestimoId: id });
             
-            await queryRunner.manager.remove(emprestimo);
-            
+            if (result.affected === 0) {
+                throw new NotFoundException('Empréstimo não encontrado');
+            }
+
             await queryRunner.commitTransaction();
             return { message: 'Empréstimo e todos os dados relacionados removidos com sucesso' };
         } catch (error) {
