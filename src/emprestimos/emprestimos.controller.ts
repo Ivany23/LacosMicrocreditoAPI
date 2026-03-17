@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EmprestimosService } from './emprestimos.service';
 import { CreateEmprestimoDto, UpdateEmprestimoDto } from './dto/emprestimo.dto';
@@ -19,8 +19,8 @@ export class EmprestimosController {
 
     @Get()
     @ApiOperation({ summary: 'Listar todos os empréstimos' })
-    findAll() {
-        return this.emprestimosService.findAll();
+    findAll(@Query('status') status?: string) {
+        return this.emprestimosService.findAll(status);
     }
 
     @Get(':id')

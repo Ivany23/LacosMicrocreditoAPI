@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Emprestimo } from '../entities/emprestimo.entity';
 import { CreateEmprestimoDto, UpdateEmprestimoDto } from './dto/emprestimo.dto';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
@@ -32,8 +32,26 @@ export class EmprestimosService {
         return savedEmprestimo;
     }
 
-    async findAll() {
-        return await this.emprestimoRepository.find({ relations: ['cliente'] });
+    async findAll(status?: string) {
+        const where: any = {};
+
+        if (status && status !== 'Todos') {
+            if (status === 'Ativos') {
+                where.status = In(['Ativo', 'APROVADO', 'Aprovado', 'EM_ANDAMENTO']);
+            } else if (status === 'Atrasados') {
+                where.status = In(['ATRASADO', 'Inadimplente']);
+            } else if (status === 'Liquidados') {
+                where.status = In(['PAGO', 'Pago', 'LIQUIDADO']);
+            } else {
+                where.status = status;
+            }
+        }
+
+        return await this.emprestimoRepository.find({
+            where,
+            relations: ['cliente'],
+            order: { dataEmprestimo: 'DESC' }
+        });
     }
 
     async findOne(id: string) {
