@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { PagamentosService } from './pagamentos.service';
 import { CreatePagamentoDto } from './dto/pagamento.dto';
@@ -79,5 +79,11 @@ Sistema inteligente de pagamento diário que:
     @ApiOperation({ summary: 'Pagamentos realizados para um empréstimo específico' })
     findByEmprestimo(@Param('emprestimoId') emprestimoId: string) {
         return this.pagamentosService.findByEmprestimo(emprestimoId);
+    }
+
+    @Delete(':id')
+    @ApiOperation({ summary: 'Remover um pagamento' })
+    remove(@Param('id') id: string) {
+        return this.pagamentosService.remove(id);
     }
 }

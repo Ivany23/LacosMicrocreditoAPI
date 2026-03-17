@@ -1,8 +1,12 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { Emprestimo } from '../entities/emprestimo.entity';
 import { Pagamento } from '../entities/pagamento.entity';
+import { Penalizacao } from '../entities/penalizacao.entity';
+import { PlanoPagamentoDiario } from '../entities/plano-pagamento-diario.entity';
+import { Penhor } from '../entities/penhor.entity';
+import { Testemunha } from '../entities/testemunha.entity';
 import { CreateEmprestimoDto, UpdateEmprestimoDto } from './dto/emprestimo.dto';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { TipoNotificacao } from '../notificacoes/dto/notificacao.dto';
@@ -14,7 +18,12 @@ export class EmprestimosService {
         private emprestimoRepository: Repository<Emprestimo>,
         @InjectRepository(Pagamento)
         private pagamentoRepository: Repository<Pagamento>,
+        @InjectRepository(Penalizacao)
+        private penalizacaoRepository: Repository<Penalizacao>,
+        @InjectRepository(PlanoPagamentoDiario)
+        private planoPagamentoDiarioRepository: Repository<PlanoPagamentoDiario>,
         private notificacoesService: NotificacoesService,
+        private dataSource: DataSource,
     ) { }
 
     async create(createEmprestimoDto: CreateEmprestimoDto) {
@@ -105,14 +114,37 @@ export class EmprestimosService {
 
     async remove(id: string) {
         const emprestimo = await this.findOne(id);
+        const queryRunner = this.dataSource.createQueryRunner();
+        
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+        
         try {
-            await this.emprestimoRepository.remove(emprestimo);
-            return { message: 'Empréstimo removido com sucesso' };
+            // 1. Deletar todos os pagamentos associados
+            await queryRunner.manager.delete(Pagamento, { emprestimoId: id });
+            
+            // 2. Deletar todas as penalizações associadas
+            await queryRunner.manager.delete(Penalizacao, { emprestimoId: id });
+            
+            // 3. Deletar todos os planos de pagamento diário
+            await queryRunner.manager.delete(PlanoPagamentoDiario, { emprestimoId: id });
+
+            // 4. Deletar todos os penhores associados
+            await queryRunner.manager.delete(Penhor, { emprestimoId: id });
+
+            // 5. Deletar todas as testemunhas associadas
+            await queryRunner.manager.delete(Testemunha, { emprestimoId: id });
+            
+            // 6. Finalmente, deletar o empréstimo
+            await queryRunner.manager.remove(emprestimo);
+            
+            await queryRunner.commitTransaction();
+            return { message: 'Empréstimo e todos os dados relacionados removidos com sucesso' };
         } catch (error) {
-            if (error.code === '23503') {
-                throw new ConflictException('Não é possível excluir este empréstimo pois existem registros associados (pagamentos ou penalizações).');
-            }
+            await queryRunner.rollbackTransaction();
             throw error;
+        } finally {
+            await queryRunner.release();
         }
     }
 }

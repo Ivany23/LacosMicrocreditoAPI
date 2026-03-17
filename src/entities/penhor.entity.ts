@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { Cliente } from './cliente.entity';
+import { Emprestimo } from './emprestimo.entity';
 
 @Entity('penhor')
 export class Penhor {
@@ -9,6 +10,9 @@ export class Penhor {
 
     @Column({ type: 'bigint', name: 'cliente_id', nullable: true })
     clienteId: string;
+
+    @Column({ type: 'bigint', name: 'emprestimo_id', nullable: true })
+    emprestimoId: string;
 
     @Column({ type: 'text', name: 'descricao_item', nullable: false })
     descricaoItem: string;
@@ -26,4 +30,8 @@ export class Penhor {
     @ManyToOne(() => Cliente, cliente => cliente.penhores)
     @JoinColumn({ name: 'cliente_id' })
     cliente: Cliente;
+
+    @ManyToOne(() => Emprestimo)
+    @JoinColumn({ name: 'emprestimo_id' })
+    emprestimo: Emprestimo;
 }

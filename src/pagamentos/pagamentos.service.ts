@@ -291,4 +291,10 @@ export class PagamentosService {
             order: { dataPagamento: 'DESC' }
         });
     }
+
+    async remove(id: string) {
+        const pagamento = await this.findOne(id);
+        await this.paymentRepo.remove(pagamento);
+        return { message: 'Pagamento removido com sucesso' };
+    }
 }

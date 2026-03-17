@@ -135,4 +135,16 @@ export class PenalizacoesService {
             historicoPenalizacoes: penalizacoes
         };
     }
+
+    async findOne(id: string) {
+        const penalizacao = await this.penalizacaoRepository.findOne({ where: { penalizacaoId: id } });
+        if (!penalizacao) throw new NotFoundException('Penalização não encontrada');
+        return penalizacao;
+    }
+
+    async remove(id: string) {
+        const penalizacao = await this.findOne(id);
+        await this.penalizacaoRepository.remove(penalizacao);
+        return { message: 'Penalização removida com sucesso' };
+    }
 }

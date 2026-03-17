@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PenalizacoesService } from './penalizacoes.service';
 import { CreatePenalizacaoDto } from './dto/penalizacao.dto';
@@ -33,5 +33,11 @@ export class PenalizacoesController {
     @ApiOperation({ summary: 'Ver histórico de penalizações de um cliente' })
     findByCliente(@Param('clienteId') clienteId: string) {
         return this.penalizacoesService.findByCliente(clienteId);
+    }
+
+    @Delete(':id')
+    @ApiOperation({ summary: 'Remover uma penalização' })
+    remove(@Param('id') id: string) {
+        return this.penalizacoesService.remove(id);
     }
 }
