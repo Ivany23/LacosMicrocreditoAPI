@@ -68,7 +68,9 @@ export class EmprestimosService {
         return await Promise.all(emprestimos.map(async emp => {
             const pagamentos = await this.pagamentoRepository.find({ where: { emprestimoId: emp.emprestimoId } });
             const valorPago = pagamentos.reduce((acc, p) => acc + Number(p.valorPago || 0), 0);
-            return { ...emp, valorPago };
+            const valorPrincipal = Number(emp.valor || 0);
+            const valorTotal = valorPrincipal + (valorPrincipal * 0.20);
+            return { ...emp, valorPago, valorTotal };
         }));
     }
 
@@ -84,8 +86,11 @@ export class EmprestimosService {
 
         const pagamentos = await this.pagamentoRepository.find({ where: { emprestimoId: id } });
         const valorPago = pagamentos.reduce((acc, p) => acc + Number(p.valorPago || 0), 0);
+        
+        const valorPrincipal = Number(emprestimo.valor || 0);
+        const valorTotal = valorPrincipal + (valorPrincipal * 0.20);
 
-        return { ...emprestimo, valorPago };
+        return { ...emprestimo, valorPago, valorTotal };
     }
 
     async findByCliente(clienteId: string) {
