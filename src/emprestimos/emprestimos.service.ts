@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Emprestimo } from '../entities/emprestimo.entity';
+import { Pagamento } from '../entities/pagamento.entity';
 import { CreateEmprestimoDto, UpdateEmprestimoDto } from './dto/emprestimo.dto';
 import { NotificacoesService } from '../notificacoes/notificacoes.service';
 import { TipoNotificacao } from '../notificacoes/dto/notificacao.dto';
@@ -11,6 +12,8 @@ export class EmprestimosService {
     constructor(
         @InjectRepository(Emprestimo)
         private emprestimoRepository: Repository<Emprestimo>,
+        @InjectRepository(Pagamento)
+        private pagamentoRepository: Repository<Pagamento>,
         private notificacoesService: NotificacoesService,
     ) { }
 
@@ -47,11 +50,17 @@ export class EmprestimosService {
             }
         }
 
-        return await this.emprestimoRepository.find({
+        const emprestimos = await this.emprestimoRepository.find({
             where,
             relations: ['cliente'],
             order: { dataEmprestimo: 'DESC' }
         });
+
+        return await Promise.all(emprestimos.map(async emp => {
+            const pagamentos = await this.pagamentoRepository.find({ where: { emprestimoId: emp.emprestimoId } });
+            const valorPago = pagamentos.reduce((acc, p) => acc + Number(p.valorPago || 0), 0);
+            return { ...emp, valorPago };
+        }));
     }
 
     async findOne(id: string) {
@@ -64,14 +73,23 @@ export class EmprestimosService {
             throw new NotFoundException('Empréstimo não encontrado');
         }
 
-        return emprestimo;
+        const pagamentos = await this.pagamentoRepository.find({ where: { emprestimoId: id } });
+        const valorPago = pagamentos.reduce((acc, p) => acc + Number(p.valorPago || 0), 0);
+
+        return { ...emprestimo, valorPago };
     }
 
     async findByCliente(clienteId: string) {
-        return await this.emprestimoRepository.find({
+        const emprestimos = await this.emprestimoRepository.find({
             where: { clienteId },
             relations: ['cliente'],
         });
+
+        return await Promise.all(emprestimos.map(async emp => {
+            const pagamentos = await this.pagamentoRepository.find({ where: { emprestimoId: emp.emprestimoId } });
+            const valorPago = pagamentos.reduce((acc, p) => acc + Number(p.valorPago || 0), 0);
+            return { ...emp, valorPago };
+        }));
     }
 
     async update(id: string, updateEmprestimoDto: UpdateEmprestimoDto) {
