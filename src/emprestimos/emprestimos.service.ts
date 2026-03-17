@@ -120,22 +120,22 @@ export class EmprestimosService {
         await queryRunner.startTransaction();
         
         try {
-            // 1. Deletar todos os pagamentos associados
+            
             await queryRunner.manager.delete(Pagamento, { emprestimoId: id });
             
-            // 2. Deletar todas as penalizações associadas
+            
             await queryRunner.manager.delete(Penalizacao, { emprestimoId: id });
             
-            // 3. Deletar todos os planos de pagamento diário
+            
             await queryRunner.manager.delete(PlanoPagamentoDiario, { emprestimoId: id });
 
-            // 4. Deletar todos os penhores associados
+            
             await queryRunner.manager.delete(Penhor, { emprestimoId: id });
 
-            // 5. Deletar todas as testemunhas associadas
+            
             await queryRunner.manager.delete(Testemunha, { emprestimoId: id });
             
-            // 6. Finalmente, deletar o empréstimo
+            
             await queryRunner.manager.remove(emprestimo);
             
             await queryRunner.commitTransaction();
