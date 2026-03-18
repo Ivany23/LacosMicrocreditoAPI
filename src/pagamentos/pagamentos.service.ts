@@ -75,7 +75,7 @@ export class PagamentosService {
                 valorPago: VALOR_REGISTRO,
                 dataPagamento: DATA_REGISTRO,
                 metodoPagamento: dto.metodoPagamento || 'Pagamento Diário',
-                referenciaPagamento: this.gerarReferenciaAleatoria()
+                referenciaPagamento: dto.referenciaPagamento || this.gerarReferenciaAleatoria()
             });
             await manager.save(novoPagamento);
 

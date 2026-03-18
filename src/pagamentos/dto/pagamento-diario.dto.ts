@@ -27,4 +27,12 @@ export class RegistrarPagamentoDiarioDto {
     })
     @IsString()
     metodoPagamento?: string;
+
+    @ApiProperty({
+        description: 'Referência ou ID da transação (M-Pesa, E-Mola, Banco)',
+        example: '0987654321',
+        required: false
+    })
+    @IsString()
+    referenciaPagamento?: string;
 }
