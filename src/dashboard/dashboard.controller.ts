@@ -164,50 +164,6 @@ Análise detalhada da base de clientes.
         return this.dashboardService.getAnaliseClientes();
     }
 
-    @Get('risco')
-    @ApiOperation({
-        summary: 'Análise de Risco e Inadimplência',
-        description: `
-Análise de risco da carteira de crédito.
-
-**Métricas Incluídas:**
-- Score de risco geral (0-100)
-- Carteira classificada por nível de risco
-- Classificação por dias de atraso
-- Provisão para Devedores Duvidosos (PDD)
-- Análise de penalizações
-- Recomendações de ação
-
-**Níveis de Risco:**
-- BAIXO: < 20 pontos
-- MODERADO: 20-50 pontos
-- ALTO: 50-75 pontos
-- CRÍTICO: > 75 pontos
-
-**Uso Recomendado:**
-- Gestão de risco de crédito
-- Definição de políticas de cobrança
-- Provisionamento contábil
-        `
-    })
-    @ApiResponse({
-        status: 200,
-        description: 'Análise de risco retornada com sucesso',
-        schema: {
-            type: 'object',
-            properties: {
-                sucesso: { type: 'boolean', example: true },
-                indicadorRisco: { type: 'object' },
-                carteiraPorRisco: { type: 'object' },
-                provisaoDevedoresDuvidosos: { type: 'object' },
-                penalizacoes: { type: 'object' },
-                alertasRisco: { type: 'object' }
-            }
-        }
-    })
-    async getAnaliseRisco() {
-        return this.dashboardService.getAnaliseRisco();
-    }
 
     @Get('projecoes')
     @ApiOperation({
@@ -333,7 +289,6 @@ Retorna apenas os alertas ativos que requerem atenção.
 **Alertas Monitorados:**
 - Empréstimos a vencer nos próximos 7 dias
 - Empréstimos vencidos não pagos
-- Nível de risco da carteira
 
 **Prioridades:**
 - CRÍTICA: Ação imediata necessária
@@ -347,10 +302,7 @@ Retorna apenas os alertas ativos que requerem atenção.
         description: 'Alertas retornados com sucesso'
     })
     async getAlertas() {
-        const [dashboard, risco] = await Promise.all([
-            this.dashboardService.getDashboardPrincipal(),
-            this.dashboardService.getAnaliseRisco()
-        ]);
+        const dashboard = await this.dashboardService.getDashboardPrincipal();
 
         return {
             sucesso: true,
@@ -358,19 +310,14 @@ Retorna apenas os alertas ativos que requerem atenção.
             resumo: {
                 totalAlertas:
                     (dashboard.alertas.emprestimosAVencer.quantidade > 0 ? 1 : 0) +
-                    (dashboard.alertas.emprestimosVencidos.quantidade > 0 ? 1 : 0) +
-                    (risco.indicadorRisco.nivel === 'CRITICO' || risco.indicadorRisco.nivel === 'ALTO' ? 1 : 0),
+                    (dashboard.alertas.emprestimosVencidos.quantidade > 0 ? 1 : 0),
                 prioridadeMaisAlta:
                     dashboard.alertas.emprestimosVencidos.quantidade > 0 ? 'CRITICA' :
-                        risco.indicadorRisco.nivel === 'CRITICO' ? 'CRITICA' :
-                            dashboard.alertas.emprestimosAVencer.quantidade > 5 ? 'ALTA' :
-                                risco.indicadorRisco.nivel === 'ALTO' ? 'ALTA' : 'MEDIA'
+                        dashboard.alertas.emprestimosAVencer.quantidade > 5 ? 'ALTA' : 'MEDIA'
             },
             alertas: {
                 emprestimosAVencer: dashboard.alertas.emprestimosAVencer,
-                emprestimosVencidos: dashboard.alertas.emprestimosVencidos,
-                indicadorRisco: risco.indicadorRisco,
-                recomendacao: risco.alertasRisco.acaoRecomendada
+                emprestimosVencidos: dashboard.alertas.emprestimosVencidos
             }
         };
     }

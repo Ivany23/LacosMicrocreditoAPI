@@ -520,139 +520,6 @@ export class DashboardService {
         };
     }
 
-    async getAnaliseRisco() {
-        const [todosEmprestimos, todasPenalizacoes] = await Promise.all([
-            this.emprestimoRepository.find({ relations: ['cliente'] }),
-            this.penalizacaoRepository.find()
-        ]);
-
-        const periodos = this.obterPeriodos();
-
-        const emprestimosAtivos = todosEmprestimos.filter(e => e.status === 'Ativo');
-        const emprestimosInadimplentes = todosEmprestimos.filter(e => e.status === 'Inadimplente');
-
-        const emDia: typeof emprestimosAtivos = [];
-        const atrasados1a7: typeof emprestimosAtivos = [];
-        const atrasados8a30: typeof emprestimosAtivos = [];
-        const atrasadosMais30: typeof emprestimosAtivos = [];
-
-        emprestimosAtivos.forEach(e => {
-            const diasAtraso = Math.floor((periodos.hoje.getTime() - new Date(e.dataVencimento).getTime()) / (1000 * 60 * 60 * 24));
-            if (diasAtraso <= 0) {
-                emDia.push(e);
-            } else if (diasAtraso <= 7) {
-                atrasados1a7.push(e);
-            } else if (diasAtraso <= 30) {
-                atrasados8a30.push(e);
-            } else {
-                atrasadosMais30.push(e);
-            }
-        });
-
-        const valorEmDia = emDia.reduce((sum, e) => sum + Number(e.valor), 0);
-        const valorAtrasados1a7 = atrasados1a7.reduce((sum, e) => sum + Number(e.valor), 0);
-        const valorAtrasados8a30 = atrasados8a30.reduce((sum, e) => sum + Number(e.valor), 0);
-        const valorAtrasadosMais30 = atrasadosMais30.reduce((sum, e) => sum + Number(e.valor), 0);
-        const valorInadimplentes = emprestimosInadimplentes.reduce((sum, e) => sum + Number(e.valor), 0);
-
-        const totalAtivo = emprestimosAtivos.length + emprestimosInadimplentes.length;
-        const pesoRisco = totalAtivo > 0
-            ? ((atrasados1a7.length * 1) + (atrasados8a30.length * 2) + (atrasadosMais30.length * 3) + (emprestimosInadimplentes.length * 5)) / totalAtivo
-            : 0;
-        const scoreRisco = Math.min(100, pesoRisco * 20);
-        const nivelRisco = scoreRisco < 20 ? 'BAIXO' : scoreRisco < 50 ? 'MODERADO' : scoreRisco < 75 ? 'ALTO' : 'CRITICO';
-
-        const penalizacoesPorTipo: Record<string, { quantidade: number; valor: number }> = {};
-        todasPenalizacoes.forEach(p => {
-            const tipo = p.tipo || 'Outros';
-            if (!penalizacoesPorTipo[tipo]) {
-                penalizacoesPorTipo[tipo] = { quantidade: 0, valor: 0 };
-            }
-            penalizacoesPorTipo[tipo].quantidade++;
-            penalizacoesPorTipo[tipo].valor += Number(p.valor);
-        });
-
-        const penalizacoesPorCliente: Record<string, number> = {};
-        todasPenalizacoes.forEach(p => {
-            penalizacoesPorCliente[p.clienteId] = (penalizacoesPorCliente[p.clienteId] || 0) + 1;
-        });
-        const clientesMaisPenalizados = Object.entries(penalizacoesPorCliente)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-
-        const provisaoPDD =
-            (valorAtrasados1a7 * 0.02) +
-            (valorAtrasados8a30 * 0.10) +
-            (valorAtrasadosMais30 * 0.30) +
-            (valorInadimplentes * 1.00);
-
-        return {
-            sucesso: true,
-            dataGeracao: new Date().toISOString(),
-            indicadorRisco: {
-                score: Number(scoreRisco.toFixed(1)),
-                nivel: nivelRisco,
-                descricao: `Índice de risco da carteira: ${nivelRisco}`
-            },
-            carteiraPorRisco: {
-                emDia: {
-                    quantidade: emDia.length,
-                    valor: this.formatarMoeda(valorEmDia),
-                    valorNumerico: Number(valorEmDia.toFixed(2)),
-                    risco: 'BAIXO'
-                },
-                atrasados1a7Dias: {
-                    quantidade: atrasados1a7.length,
-                    valor: this.formatarMoeda(valorAtrasados1a7),
-                    valorNumerico: Number(valorAtrasados1a7.toFixed(2)),
-                    risco: 'MODERADO'
-                },
-                atrasados8a30Dias: {
-                    quantidade: atrasados8a30.length,
-                    valor: this.formatarMoeda(valorAtrasados8a30),
-                    valorNumerico: Number(valorAtrasados8a30.toFixed(2)),
-                    risco: 'ALTO'
-                },
-                atrasadosMaisDe30Dias: {
-                    quantidade: atrasadosMais30.length,
-                    valor: this.formatarMoeda(valorAtrasadosMais30),
-                    valorNumerico: Number(valorAtrasadosMais30.toFixed(2)),
-                    risco: 'MUITO_ALTO'
-                },
-                inadimplentes: {
-                    quantidade: emprestimosInadimplentes.length,
-                    valor: this.formatarMoeda(valorInadimplentes),
-                    valorNumerico: Number(valorInadimplentes.toFixed(2)),
-                    risco: 'CRITICO'
-                }
-            },
-            provisaoDevedoresDuvidosos: {
-                valorProvisionado: this.formatarMoeda(provisaoPDD),
-                valorNumerico: Number(provisaoPDD.toFixed(2)),
-                descricao: 'Valor estimado para cobertura de possíveis perdas'
-            },
-            penalizacoes: {
-                total: todasPenalizacoes.length,
-                valorTotal: this.formatarMoeda(todasPenalizacoes.reduce((sum, p) => sum + Number(p.valor), 0)),
-                porTipo: Object.entries(penalizacoesPorTipo).map(([tipo, dados]) => ({
-                    tipo,
-                    quantidade: dados.quantidade,
-                    valor: this.formatarMoeda(dados.valor)
-                }))
-            },
-            alertasRisco: {
-                clientesCriticos: clientesMaisPenalizados.length,
-                acaoRecomendada: nivelRisco === 'CRITICO'
-                    ? 'Ação imediata necessária: revisar políticas de concessão e intensificar cobrança'
-                    : nivelRisco === 'ALTO'
-                        ? 'Monitorar de perto e implementar ações preventivas de cobrança'
-                        : nivelRisco === 'MODERADO'
-                            ? 'Manter monitoramento regular e acompanhar atrasos'
-                            : 'Situação controlada, manter práticas atuais'
-            }
-        };
-    }
-
     async getProjecoesFinanceiras() {
         const [todosEmprestimos, todosPagamentos] = await Promise.all([
             this.emprestimoRepository.find(),
@@ -685,9 +552,9 @@ export class DashboardService {
             ? pagamentosUltimos6Meses.reduce((sum, p) => sum + Number(p.valorPago), 0) / 6
             : 0;
 
-        const projecaoMes1 = mediaArrecadacaoMensal * 1.0; 
-        const projecaoMes2 = mediaArrecadacaoMensal * 1.05; 
-        const projecaoMes3 = mediaArrecadacaoMensal * 1.08; 
+        const projecaoMes1 = mediaArrecadacaoMensal * 1.0;
+        const projecaoMes2 = mediaArrecadacaoMensal * 1.05;
+        const projecaoMes3 = mediaArrecadacaoMensal * 1.08;
 
         const emprestimosUltimos6Meses = todosEmprestimos.filter(e => {
             const data = new Date(e.dataEmprestimo);
@@ -755,12 +622,11 @@ export class DashboardService {
     }
 
     async getRelatorioExecutivo() {
-        const [dashboard, emprestimos, pagamentos, clientes, risco, projecoes] = await Promise.all([
+        const [dashboard, emprestimos, pagamentos, clientes, projecoes] = await Promise.all([
             this.getDashboardPrincipal(),
             this.getAnaliseEmprestimos(),
             this.getAnalisePagamentos(),
             this.getAnaliseClientes(),
-            this.getAnaliseRisco(),
             this.getProjecoesFinanceiras()
         ]);
 
@@ -789,12 +655,6 @@ export class DashboardService {
                     resumo: clientes.resumoGeral,
                     segmentacao: clientes.segmentacao,
                     crescimento: clientes.crescimento
-                },
-                risco: {
-                    indicador: risco.indicadorRisco,
-                    carteira: risco.carteiraPorRisco,
-                    provisao: risco.provisaoDevedoresDuvidosos,
-                    recomendacao: risco.alertasRisco.acaoRecomendada
                 }
             },
             projecoes: {
@@ -804,7 +664,6 @@ export class DashboardService {
             },
             conclusoes: [
                 `Taxa de inadimplência: ${dashboard.kpisPrincipais.taxaInadimplencia.valor} (${dashboard.kpisPrincipais.taxaInadimplencia.nivel})`,
-                `Score de risco da carteira: ${risco.indicadorRisco.score} (${risco.indicadorRisco.nivel})`,
                 `Taxa de recorrência de clientes: ${clientes.resumoGeral.taxaRecorrencia}`,
                 `Previsão de arrecadação próximo mês: ${projecoes.projecaoArrecadacao.mes1.valorProjetado}`
             ]
