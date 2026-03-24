@@ -85,16 +85,17 @@ export class DashboardService {
 
         const emprestimosPagos = todosEmprestimos.filter(e => e.status === 'Pago');
         const capitalPago = emprestimosPagos.reduce((sum, e) => sum + Number(e.valor), 0);
-        const lucroRealizado = capitalPago * 0.20;
+        const totalPenalizacoes = todasPenalizacoes.reduce((sum, p) => sum + Number(p.valor), 0);
+        const penalizacoesPendentes = todasPenalizacoes.filter(p => p.status === 'pendente' || p.status === 'aplicada');
+        const valorPenalizacoesPendentes = penalizacoesPendentes.reduce((sum, p) => sum + Number(p.valor), 0);
+        
+        const valorPenalizacoesPagas = totalPenalizacoes - valorPenalizacoesPendentes;
+        const lucroRealizado = (capitalPago * 0.20) + valorPenalizacoesPagas;
 
         const emprestimosInadimplentes = todosEmprestimos.filter(e => e.status === 'Inadimplente');
         const taxaInadimplencia = totalEmprestado > 0
             ? (emprestimosInadimplentes.reduce((sum, e) => sum + Number(e.valor), 0) / totalEmprestado) * 100
             : 0;
-
-        const totalPenalizacoes = todasPenalizacoes.reduce((sum, p) => sum + Number(p.valor), 0);
-        const penalizacoesPendentes = todasPenalizacoes.filter(p => p.status === 'pendente' || p.status === 'aplicada');
-        const valorPenalizacoesPendentes = penalizacoesPendentes.reduce((sum, p) => sum + Number(p.valor), 0);
 
         const emprestimosMesAtual = todosEmprestimos.filter(e =>
             new Date(e.dataEmprestimo) >= periodos.inicioMesAtual &&
