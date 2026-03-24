@@ -134,8 +134,15 @@ export class DashboardService {
         const carteiraAtiva = todosEmprestimos.filter(e => e.status === 'Ativo').reduce((sum, e) => sum + Number(e.valor), 0);
         const desembolsoDiario = todosEmprestimos.filter(e => new Date(e.dataEmprestimo).toDateString() === periodos.hoje.toDateString()).reduce((sum, e) => sum + Number(e.valor), 0);
         
-        const totalEsperado = totalEmprestado * 1.20;
-        const taxaReembolso = totalEsperado > 0 ? (totalRecebido / totalEsperado) * 100 : 0;
+        const totalRecebidoCalculo = todosPagamentos.reduce((sum, p) => sum + Number(p.valorPago), 0);
+        const valorVencidoNaoPago = todosEmprestimos
+            .filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < periodos.hoje)
+            .reduce((sum, e) => sum + (Number(e.valor) * 1.20), 0);
+
+        const totalQueDeveriaEstarNoCaixa = totalRecebidoCalculo + valorVencidoNaoPago;
+        const taxaReembolso = totalQueDeveriaEstarNoCaixa > 0 
+            ? (totalRecebidoCalculo / totalQueDeveriaEstarNoCaixa) * 100 
+            : 0;
 
         const umDiaAtras = new Date(periodos.hoje.getTime() - 1 * 24 * 60 * 60 * 1000);
         const seteDiasAtras = new Date(periodos.hoje.getTime() - 7 * 24 * 60 * 60 * 1000);
