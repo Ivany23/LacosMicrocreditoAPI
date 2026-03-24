@@ -131,7 +131,22 @@ export class DashboardService {
             new Date(e.dataVencimento) < periodos.hoje
         );
 
-        const carteiraAtiva = todosEmprestimos.filter(e => e.status === 'Ativo').reduce((sum, e) => sum + Number(e.valor), 0);
+        // Cálculo da Carteira Ativa Real (Saldo Devedor Líquido: Principal + 20% Juros + Multas - Pagamentos)
+        const emprestimosNaoPagos = todosEmprestimos.filter(e => e.status !== 'Pago' && e.status !== 'Finalizado');
+        
+        const calcularSaldoReal = (e: Emprestimo) => {
+            const valorComJuros = Number(e.valor) * 1.20;
+            const multasDesteEmprestimo = todasPenalizacoes
+                .filter(p => p.emprestimoId === e.emprestimoId && p.status !== 'Pago')
+                .reduce((sum, p) => sum + Number(p.valor), 0);
+            const pagamentosDesteEmprestimo = todosPagamentos
+                .filter(p => p.emprestimoId === e.emprestimoId)
+                .reduce((sum, p) => sum + Number(p.valorPago), 0);
+            
+            return Math.max(0, valorComJuros + multasDesteEmprestimo - pagamentosDesteEmprestimo);
+        };
+
+        const carteiraAtiva = emprestimosNaoPagos.reduce((sum, e) => sum + calcularSaldoReal(e), 0);
         const desembolsoDiario = todosEmprestimos.filter(e => new Date(e.dataEmprestimo).toDateString() === periodos.hoje.toDateString()).reduce((sum, e) => sum + Number(e.valor), 0);
         
         const totalRecebidoCalculo = todosPagamentos.reduce((sum, p) => sum + Number(p.valorPago), 0);
@@ -148,9 +163,9 @@ export class DashboardService {
         const seteDiasAtras = new Date(periodos.hoje.getTime() - 7 * 24 * 60 * 60 * 1000);
         const trintaDiasAtras = new Date(periodos.hoje.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-        const par1 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < umDiaAtras).reduce((sum, e) => sum + Number(e.valor), 0);
-        const par7 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < seteDiasAtras).reduce((sum, e) => sum + Number(e.valor), 0);
-        const par30 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < trintaDiasAtras).reduce((sum, e) => sum + Number(e.valor), 0);
+        const par1 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < umDiaAtras).reduce((sum, e) => sum + calcularSaldoReal(e), 0);
+        const par7 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < seteDiasAtras).reduce((sum, e) => sum + calcularSaldoReal(e), 0);
+        const par30 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < trintaDiasAtras).reduce((sum, e) => sum + calcularSaldoReal(e), 0);
 
         return {
             sucesso: true,
