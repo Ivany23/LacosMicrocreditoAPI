@@ -131,6 +131,20 @@ export class DashboardService {
             new Date(e.dataVencimento) < periodos.hoje
         );
 
+        const carteiraAtiva = todosEmprestimos.filter(e => e.status === 'Ativo').reduce((sum, e) => sum + Number(e.valor), 0);
+        const desembolsoDiario = todosEmprestimos.filter(e => new Date(e.dataEmprestimo).toDateString() === periodos.hoje.toDateString()).reduce((sum, e) => sum + Number(e.valor), 0);
+        
+        const totalEsperado = totalEmprestado * 1.20;
+        const taxaReembolso = totalEsperado > 0 ? (totalRecebido / totalEsperado) * 100 : 0;
+
+        const umDiaAtras = new Date(periodos.hoje.getTime() - 1 * 24 * 60 * 60 * 1000);
+        const seteDiasAtras = new Date(periodos.hoje.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const trintaDiasAtras = new Date(periodos.hoje.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        const par1 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < umDiaAtras).reduce((sum, e) => sum + Number(e.valor), 0);
+        const par7 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < seteDiasAtras).reduce((sum, e) => sum + Number(e.valor), 0);
+        const par30 = todosEmprestimos.filter(e => e.status === 'Ativo' && new Date(e.dataVencimento) < trintaDiasAtras).reduce((sum, e) => sum + Number(e.valor), 0);
+
         return {
             sucesso: true,
             dataGeracao: new Date().toISOString(),
@@ -144,6 +158,21 @@ export class DashboardService {
                     valor: totalClientes,
                     clientesAtivos: clientesUnicos,
                     descricao: 'Total de clientes cadastrados no sistema'
+                },
+                carteiraAtiva: {
+                    valor: this.formatarMoeda(carteiraAtiva),
+                    valorNumerico: Number(carteiraAtiva.toFixed(2)),
+                    descricao: 'Capital total atualmente emprestado (na rua)'
+                },
+                desembolsoDiario: {
+                    valor: this.formatarMoeda(desembolsoDiario),
+                    valorNumerico: Number(desembolsoDiario.toFixed(2)),
+                    descricao: 'Capital desembolsado no dia de hoje'
+                },
+                taxaReembolso: {
+                    valor: `${taxaReembolso.toFixed(2)}%`,
+                    valorNumerico: Number(taxaReembolso.toFixed(2)),
+                    descricao: 'Percentual de capital recuperado vs esperado (1.2x)'
                 },
                 capitalEmprestado: {
                     valor: this.formatarMoeda(totalEmprestado),
@@ -165,12 +194,20 @@ export class DashboardService {
                     valorNumerico: Number(taxaInadimplencia.toFixed(2)),
                     nivel: taxaInadimplencia < 5 ? 'BAIXO' : taxaInadimplencia < 15 ? 'MODERADO' : 'CRITICO',
                     descricao: 'Percentual de inadimplência sobre capital emprestado'
+                }
+            },
+            indicadoresRisco: {
+                par1: {
+                    valor: this.formatarMoeda(par1),
+                    percentual: carteiraAtiva > 0 ? `${((par1 / carteiraAtiva) * 100).toFixed(2)}%` : '0%'
                 },
-                penalizacoesPendentes: {
-                    quantidade: penalizacoesPendentes.length,
-                    valor: this.formatarMoeda(valorPenalizacoesPendentes),
-                    valorNumerico: Number(valorPenalizacoesPendentes.toFixed(2)),
-                    descricao: 'Penalizações aguardando pagamento'
+                par7: {
+                    valor: this.formatarMoeda(par7),
+                    percentual: carteiraAtiva > 0 ? `${((par7 / carteiraAtiva) * 100).toFixed(2)}%` : '0%'
+                },
+                par30: {
+                    valor: this.formatarMoeda(par30),
+                    percentual: carteiraAtiva > 0 ? `${((par30 / carteiraAtiva) * 100).toFixed(2)}%` : '0%'
                 }
             },
             desempenhoMensal: {
