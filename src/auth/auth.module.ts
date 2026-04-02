@@ -10,6 +10,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { AutenticacaoCliente } from '../entities/autenticacao-cliente.entity';
 import { Funcionario } from '../entities/funcionario.entity';
 import { AuthConstants } from './constants';
+import { FuncionariosModule } from '../funcionarios/funcionarios.module';
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { AuthConstants } from './constants';
                 expiresIn: AuthConstants.jwtExpiration,
             },
         }),
+        FuncionariosModule,
     ],
     controllers: [AuthClienteController, AuthFuncionarioController],
     providers: [AuthClienteService, AuthFuncionarioService, JwtStrategy],
