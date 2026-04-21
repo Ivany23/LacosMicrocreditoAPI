@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as ExcelJS from 'exceljs';
 import { Cliente } from '../entities/cliente.entity';
 import { Emprestimo } from '../entities/emprestimo.entity';
 import { Pagamento } from '../entities/pagamento.entity';
 import { Penalizacao } from '../entities/penalizacao.entity';
+import { DashboardService } from '../dashboard/dashboard.service';
 
 const PDFDocument = require('pdfkit');
 
@@ -19,6 +21,7 @@ export class RelatoriosService {
         private pagamentoRepository: Repository<Pagamento>,
         @InjectRepository(Penalizacao)
         private penalizacaoRepository: Repository<Penalizacao>,
+        private dashboardService: DashboardService,
     ) { }
 
     private formatarMoeda(valor: number): string {
@@ -884,7 +887,153 @@ export class RelatoriosService {
                 reject(error);
             }
         });
-
         return { pdfBuffer, nomeCliente: cliente.nome };
+    }
+
+    async gerarExcelFinanceiroCompleto(): Promise<Buffer> {
+        const dados = await this.dashboardService.getRelatorioExecutivo();
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Laços Microcrédito';
+        workbook.lastModifiedBy = 'Sistema de Gestão';
+        workbook.created = new Date();
+
+        const sheetDash = workbook.addWorksheet('Resumo Executivo');
+        sheetDash.columns = [
+            { header: 'Indicador', key: 'indicador', width: 40 },
+            { header: 'Valor', key: 'valor', width: 25 },
+            { header: 'Descrição', key: 'descricao', width: 70 }
+        ];
+
+        const headerRow = sheetDash.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1565C0' } };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+        sheetDash.addRow({ indicador: '1. KPIs PRINCIPAIS', valor: '', descricao: '' });
+        const kpiHeader = sheetDash.lastRow;
+        kpiHeader.font = { bold: true };
+        kpiHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
+
+        const kpis = dados.resumoExecutivo.kpis;
+        Object.values(kpis).forEach((kpi: any) => {
+            sheetDash.addRow({
+                indicador: kpi.descricao.split('(')[0].trim(),
+                valor: kpi.valor,
+                descricao: kpi.descricao
+            });
+        });
+
+        sheetDash.addRow({});
+        sheetDash.addRow({ indicador: '2. ANALISE DE RISCO (PAR)', valor: '', descricao: '' });
+        sheetDash.lastRow.font = { bold: true };
+
+        const empStatus = dados.analises.emprestimos.porStatus;
+        sheetDash.addRow({ indicador: 'Taxa de Inadimplência', valor: kpis.taxaInadimplencia.valor, descricao: `Nivel: ${kpis.taxaInadimplencia.nivel}` });
+        sheetDash.addRow({ indicador: 'Empréstimos Inadimplentes (Qtd)', valor: empStatus.inadimplentes.quantidade, descricao: '' });
+        sheetDash.addRow({ indicador: 'Valor em Inadimplência', valor: empStatus.inadimplentes.valor, descricao: '' });
+
+        sheetDash.addRow({});
+        sheetDash.addRow({ indicador: '3. ALERTAS CRÍTICOS', valor: '', descricao: '' });
+        sheetDash.lastRow.font = { bold: true, color: { argb: 'FFC62828' } };
+
+        const alertas = dados.resumoExecutivo.alertas;
+        sheetDash.addRow({ indicador: 'Vencidos / Aguardando Pagamento', valor: alertas.emprestimosVencidos.quantidade, descricao: `Valor: ${alertas.emprestimosVencidos.valor} - PRIORIDADE: ${alertas.emprestimosVencidos.prioridade}` });
+        sheetDash.addRow({ indicador: 'Vencendo nos Próximos 7 Dias', valor: alertas.emprestimosAVencer.quantidade, descricao: `Valor: ${alertas.emprestimosAVencer.valor}` });
+
+        const [todosEmprestimos, todosPagamentos, todosClientes] = await Promise.all([
+            this.emprestimoRepository.find({ relations: ['cliente'], order: { dataEmprestimo: 'DESC' } }),
+            this.pagamentoRepository.find({ relations: ['cliente', 'emprestimo'], order: { dataPagamento: 'DESC' } }),
+            this.clienteRepository.find({ relations: ['localizacao'], order: { dataCadastro: 'DESC' } })
+        ]);
+
+        const sheetEmp = workbook.addWorksheet('Empréstimos Detalhados');
+        sheetEmp.columns = [
+            { header: 'ID', key: 'id', width: 10 },
+            { header: 'Cliente', key: 'cliente', width: 35 },
+            { header: 'Data Solicitação', key: 'data', width: 20 },
+            { header: 'Vencimento', key: 'vencimento', width: 20 },
+            { header: 'Valor Principal', key: 'valor', width: 20 },
+            { header: 'Encargos (20%)', key: 'encargos', width: 20 },
+            { header: 'Total Devido', key: 'total', width: 20 },
+            { header: 'Status', key: 'status', width: 15 }
+        ];
+
+        const empHeader = sheetEmp.getRow(1);
+        empHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        empHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E7D32' } };
+
+        todosEmprestimos.forEach(e => {
+            const vParam = Number(e.valor);
+            sheetEmp.addRow({
+                id: `EMP-${e.emprestimoId}`,
+                cliente: e.cliente?.nome || 'N/A',
+                data: this.formatarData(e.dataEmprestimo),
+                vencimento: this.formatarData(e.dataVencimento),
+                valor: vParam,
+                encargos: vParam * 0.2,
+                total: vParam * 1.2,
+                status: e.status
+            });
+        });
+
+        ['E', 'F', 'G'].forEach(col => {
+            sheetEmp.getColumn(col).numFmt = '#,##0.00" MT"';
+        });
+
+        const sheetPag = workbook.addWorksheet('Histórico de Pagamentos');
+        sheetPag.columns = [
+            { header: 'ID Pagamento', key: 'id', width: 15 },
+            { header: 'ID Empréstimo', key: 'empId', width: 15 },
+            { header: 'Cliente', key: 'cliente', width: 35 },
+            { header: 'Data Pagamento', key: 'data', width: 20 },
+            { header: 'Valor Pago', key: 'valor', width: 20 },
+            { header: 'Método', key: 'metodo', width: 20 },
+            { header: 'Referência', key: 'ref', width: 25 }
+        ];
+
+        const pagHeader = sheetPag.getRow(1);
+        pagHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        pagHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1565C0' } };
+
+        todosPagamentos.forEach(p => {
+            sheetPag.addRow({
+                id: `PAG-${p.pagamentoId}`,
+                empId: `EMP-${p.emprestimoId}`,
+                cliente: p.cliente?.nome || 'N/A',
+                data: this.formatarData(p.dataPagamento),
+                valor: Number(p.valorPago),
+                metodo: p.metodoPagamento,
+                ref: p.referenciaPagamento || 'N/A'
+            });
+        });
+        sheetPag.getColumn('E').numFmt = '#,##0.00" MT"';
+
+        const sheetCli = workbook.addWorksheet('Base de Clientes');
+        sheetCli.columns = [
+            { header: 'ID', key: 'id', width: 10 },
+            { header: 'Nome Completo', key: 'nome', width: 40 },
+            { header: 'Telefone', key: 'telefone', width: 20 },
+            { header: 'Província', key: 'provincia', width: 20 },
+            { header: 'Cidade', key: 'cidade', width: 20 },
+            { header: 'Data Cadastro', key: 'data', width: 20 }
+        ];
+
+        const cliHeader = sheetCli.getRow(1);
+        cliHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cliHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF455A64' } };
+
+        todosClientes.forEach(c => {
+            sheetCli.addRow({
+                id: c.clienteId,
+                nome: c.nome,
+                telefone: c.telefone,
+                provincia: c.localizacao?.provincia || 'N/A',
+                cidade: c.localizacao?.cidade || 'N/A',
+                data: this.formatarData(c.dataCadastro)
+            });
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        return buffer as any;
     }
 }

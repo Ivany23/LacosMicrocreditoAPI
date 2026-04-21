@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { RelatoriosController } from './relatorios.controller';
 import { RelatoriosService } from './relatorios.service';
 import { Cliente } from '../entities/cliente.entity';
@@ -14,7 +15,8 @@ import { Penalizacao } from '../entities/penalizacao.entity';
             Emprestimo,
             Pagamento,
             Penalizacao
-        ])
+        ]),
+        DashboardModule
     ],
     controllers: [RelatoriosController],
     providers: [RelatoriosService],

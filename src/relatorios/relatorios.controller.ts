@@ -70,4 +70,29 @@ export class RelatoriosController {
             resumoPenalizacoes: extrato.relatorio.penalizacoes.resumo
         };
     }
+
+    @Get('financeiro/excel')
+    @ApiOperation({
+        summary: 'Download do Relatório Financeiro Completo em Excel',
+        description: 'Gera um arquivo Excel (.xlsx) com múltiplas abas contendo o resumo executivo, detalhamento de empréstimos, pagamentos e base de clientes. Dados atualizados em tempo real.'
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Arquivo Excel gerado com sucesso',
+        content: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { schema: { type: 'string', format: 'binary' } } }
+    })
+    async downloadExcelFinanceiro(@Res() res: Response) {
+        const buffer = await this.relatoriosService.gerarExcelFinanceiroCompleto();
+        const dataAtual = new Date().toISOString().split('T')[0];
+        const nomeArquivo = `Lacos_Relatorio_Financeiro_${dataAtual}.xlsx`;
+
+        res.set({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="${nomeArquivo}"`,
+            'Content-Length': buffer.length,
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+        });
+
+        res.send(buffer);
+    }
 }
