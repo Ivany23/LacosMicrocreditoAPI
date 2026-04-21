@@ -894,107 +894,187 @@ export class RelatoriosService {
         const dados = await this.dashboardService.getRelatorioExecutivo();
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Laços Microcrédito';
-        workbook.lastModifiedBy = 'Sistema de Gestão';
+        workbook.lastModifiedBy = 'Sistema de API';
         workbook.created = new Date();
+        workbook.title = 'Relatório Financeiro Consolidado';
 
+        // --- ESTILOS COMPARTILHADOS ---
+        const styleBorder = {
+            top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+        };
+
+        const applyZebraStriping = (sheet: ExcelJS.Worksheet, startRow: number = 2) => {
+            sheet.eachRow((row, rowNumber) => {
+                if (rowNumber >= startRow) {
+                    const isEven = rowNumber % 2 === 0;
+                    row.eachCell((cell) => {
+                        cell.border = styleBorder as any;
+                        if (isEven) {
+                            cell.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: 'FFF9FAFB' }
+                            };
+                        }
+                    });
+                }
+            });
+        };
+
+        const setupProfessionalHeader = (sheet: ExcelJS.Worksheet, color: string) => {
+            const headerRow = sheet.getRow(1);
+            headerRow.height = 30;
+            headerRow.eachCell((cell) => {
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.border = {
+                    bottom: { style: 'medium', color: { argb: 'FFFFFFFF' } }
+                } as any;
+            });
+            sheet.views = [{ state: 'frozen', ySplit: 1 }];
+        };
+
+        // --- 1. ABA: RESUMO EXECUTIVO ---
         const sheetDash = workbook.addWorksheet('Resumo Executivo');
         sheetDash.columns = [
-            { header: 'Indicador', key: 'indicador', width: 40 },
-            { header: 'Valor', key: 'valor', width: 25 },
-            { header: 'Descrição', key: 'descricao', width: 70 }
+            { header: 'INDICADOR ESTRATÉGICO', key: 'indicador', width: 45 },
+            { header: 'VALOR ATUAL', key: 'valor', width: 25 },
+            { header: 'DETALHAMENTO E STATUS', key: 'descricao', width: 80 }
         ];
 
-        const headerRow = sheetDash.getRow(1);
-        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1565C0' } };
-        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+        // Título e Branding no topo
+        sheetDash.insertRow(1, ['LAÇOS MICROCRÉDITO - RELATÓRIO EXECUTIVO DE GESTÃO']);
+        sheetDash.insertRow(2, [`Data de Referência: ${new Date().toLocaleDateString('pt-MZ')} | Gerado às ${new Date().toLocaleTimeString('pt-MZ')}`]);
+        sheetDash.insertRow(3, []);
 
-        sheetDash.addRow({ indicador: '1. KPIs PRINCIPAIS', valor: '', descricao: '' });
-        const kpiHeader = sheetDash.lastRow;
-        kpiHeader.font = { bold: true };
-        kpiHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE3F2FD' } };
+        sheetDash.mergeCells('A1:C1');
+        sheetDash.mergeCells('A2:C2');
+        
+        const titleRow = sheetDash.getRow(1);
+        titleRow.font = { size: 16, bold: true, color: { argb: 'FF1A237E' } };
+        titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
+        
+        const subTitleRow = sheetDash.getRow(2);
+        subTitleRow.font = { italic: true, color: { argb: 'FF757575' } };
+        subTitleRow.alignment = { horizontal: 'center' };
+
+        // Re-header para os dados reais
+        const dataHeaderRow = sheetDash.getRow(4);
+        dataHeaderRow.values = ['INDICADOR ESTRATÉGICO', 'VALOR ATUAL', 'DETALHAMENTO E STATUS'];
+        setupProfessionalHeader(sheetDash, 'FF1A237E');
+        sheetDash.views = []; // No Resumo não precisamos congelar a primeira linha do mesmo jeito
+
+        // Seção 1: KPIs
+        sheetDash.addRow({ indicador: '► 1. INDICADORES DE PERFORMANCE (KPIs)', valor: '', descricao: '' });
+        sheetDash.lastRow.font = { bold: true, size: 12 };
+        sheetDash.lastRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EAF6' } };
 
         const kpis = dados.resumoExecutivo.kpis;
         Object.values(kpis).forEach((kpi: any) => {
-            sheetDash.addRow({
-                indicador: kpi.descricao.split('(')[0].trim(),
+            const row = sheetDash.addRow({
+                indicador: `   • ${kpi.descricao.split('(')[0].trim()}`,
                 valor: kpi.valor,
                 descricao: kpi.descricao
             });
+            row.getCell('valor').font = { bold: true };
         });
 
-        sheetDash.addRow({});
-        sheetDash.addRow({ indicador: '2. ANALISE DE RISCO (PAR)', valor: '', descricao: '' });
-        sheetDash.lastRow.font = { bold: true };
+        // Seção 2: Risco
+        sheetDash.addRow([]);
+        sheetDash.addRow({ indicador: '► 2. ANÁLISE DE RISCO E CARTEIRA (PAR)', valor: '', descricao: '' });
+        sheetDash.lastRow.font = { bold: true, size: 12 };
+        sheetDash.lastRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBE9E7' } };
 
         const empStatus = dados.analises.emprestimos.porStatus;
-        sheetDash.addRow({ indicador: 'Taxa de Inadimplência', valor: kpis.taxaInadimplencia.valor, descricao: `Nivel: ${kpis.taxaInadimplencia.nivel}` });
-        sheetDash.addRow({ indicador: 'Empréstimos Inadimplentes (Qtd)', valor: empStatus.inadimplentes.quantidade, descricao: '' });
-        sheetDash.addRow({ indicador: 'Valor em Inadimplência', valor: empStatus.inadimplentes.valor, descricao: '' });
+        sheetDash.addRow({ indicador: '   • Taxa de Inadimplência Global', valor: kpis.taxaInadimplencia.valor, descricao: `Nível de Alerta: ${kpis.taxaInadimplencia.nivel}` });
+        sheetDash.addRow({ indicador: '   • Volume Inadimplente (Qtd)', valor: empStatus.inadimplentes.quantidade, descricao: 'Contratos com atraso superior a 1 dia' });
+        sheetDash.addRow({ indicador: '   • Exposição Financeira (Risco)', valor: empStatus.inadimplentes.valor, descricao: 'Saldo total em aberto destes contratos' });
 
-        sheetDash.addRow({});
-        sheetDash.addRow({ indicador: '3. ALERTAS CRÍTICOS', valor: '', descricao: '' });
-        sheetDash.lastRow.font = { bold: true, color: { argb: 'FFC62828' } };
+        // Seção 3: Alertas
+        sheetDash.addRow([]);
+        sheetDash.addRow({ indicador: '► 3. ALERTAS E PRIORIDADES CRÍTICAS', valor: '', descricao: '' });
+        sheetDash.lastRow.font = { bold: true, size: 12, color: { argb: 'FFB71C1C' } };
+        sheetDash.lastRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEBEE' } };
 
         const alertas = dados.resumoExecutivo.alertas;
-        sheetDash.addRow({ indicador: 'Vencidos / Aguardando Pagamento', valor: alertas.emprestimosVencidos.quantidade, descricao: `Valor: ${alertas.emprestimosVencidos.valor} - PRIORIDADE: ${alertas.emprestimosVencidos.prioridade}` });
-        sheetDash.addRow({ indicador: 'Vencendo nos Próximos 7 Dias', valor: alertas.emprestimosAVencer.quantidade, descricao: `Valor: ${alertas.emprestimosAVencer.valor}` });
+        const vRow = sheetDash.addRow({ 
+            indicador: '   • Portfólio Vencido / Cobrança Ativa', 
+            valor: alertas.emprestimosVencidos.quantidade, 
+            descricao: `Total: ${alertas.emprestimosVencidos.valor} - PRIORIDADE: ${alertas.emprestimosVencidos.prioridade}` 
+        });
+        vRow.getCell('valor').font = { color: { argb: 'FFD32F2F' }, bold: true };
 
+        sheetDash.addRow({ 
+            indicador: '   • Próximos Vencimentos (7 Dias)', 
+            valor: alertas.emprestimosAVencer.quantidade, 
+            descricao: `Expectativa de Recebimento: ${alertas.emprestimosAVencer.valor}` 
+        });
+
+        // --- DATA FETCHING PARA AS OUTRAS ABAS ---
         const [todosEmprestimos, todosPagamentos, todosClientes] = await Promise.all([
             this.emprestimoRepository.find({ relations: ['cliente'], order: { dataEmprestimo: 'DESC' } }),
             this.pagamentoRepository.find({ relations: ['cliente', 'emprestimo'], order: { dataPagamento: 'DESC' } }),
             this.clienteRepository.find({ relations: ['localizacao'], order: { dataCadastro: 'DESC' } })
         ]);
 
-        const sheetEmp = workbook.addWorksheet('Empréstimos Detalhados');
+        // --- 2. ABA: EMPRÉSTIMOS ---
+        const sheetEmp = workbook.addWorksheet('Gestão de Carteira');
         sheetEmp.columns = [
-            { header: 'ID', key: 'id', width: 10 },
-            { header: 'Cliente', key: 'cliente', width: 35 },
-            { header: 'Data Solicitação', key: 'data', width: 20 },
-            { header: 'Vencimento', key: 'vencimento', width: 20 },
-            { header: 'Valor Principal', key: 'valor', width: 20 },
-            { header: 'Encargos (20%)', key: 'encargos', width: 20 },
-            { header: 'Total Devido', key: 'total', width: 20 },
-            { header: 'Status', key: 'status', width: 15 }
+            { header: 'ID CONTRATO', key: 'id', width: 15 },
+            { header: 'NOME DO CLIENTE', key: 'cliente', width: 40 },
+            { header: 'SOLICITAÇÃO', key: 'data', width: 18 },
+            { header: 'LIMITE VENC.', key: 'vencimento', width: 18 },
+            { header: 'CAPITAL (MZN)', key: 'valor', width: 22 },
+            { header: 'JUROS (20%)', key: 'encargos', width: 22 },
+            { header: 'MONTANTE FINAL', key: 'total', width: 22 },
+            { header: 'STATUS ATUAL', key: 'status', width: 20 }
         ];
 
-        const empHeader = sheetEmp.getRow(1);
-        empHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        empHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E7D32' } };
-
+        setupProfessionalHeader(sheetEmp, 'FF2E7D32');
         todosEmprestimos.forEach(e => {
             const vParam = Number(e.valor);
-            sheetEmp.addRow({
+            const row = sheetEmp.addRow({
                 id: `EMP-${e.emprestimoId}`,
                 cliente: e.cliente?.nome || 'N/A',
-                data: this.formatarData(e.dataEmprestimo),
-                vencimento: this.formatarData(e.dataVencimento),
+                data: this.formatarData(e.dataEmprestimo).split(',')[0],
+                vencimento: this.formatarData(e.dataVencimento).split(',')[0],
                 valor: vParam,
                 encargos: vParam * 0.2,
                 total: vParam * 1.2,
-                status: e.status
+                status: e.status.toUpperCase()
             });
+
+            // Colorir status
+            const statusCell = row.getCell('status');
+            if (e.status === 'Pago') statusCell.font = { color: { argb: 'FF2E7D32' }, bold: true };
+            if (e.status === 'Inadimplente') statusCell.font = { color: { argb: 'FFC62828' }, bold: true };
+            if (e.status === 'Ativo') statusCell.font = { color: { argb: 'FF1565C0' }, bold: true };
         });
 
+        applyZebraStriping(sheetEmp);
         ['E', 'F', 'G'].forEach(col => {
-            sheetEmp.getColumn(col).numFmt = '#,##0.00" MT"';
+            const column = sheetEmp.getColumn(col);
+            column.numFmt = '#,##0.00" MT"';
+            column.alignment = { horizontal: 'right' };
         });
 
-        const sheetPag = workbook.addWorksheet('Histórico de Pagamentos');
+        // --- 3. ABA: PAGAMENTOS ---
+        const sheetPag = workbook.addWorksheet('Fluxo de Caixa (Entradas)');
         sheetPag.columns = [
-            { header: 'ID Pagamento', key: 'id', width: 15 },
-            { header: 'ID Empréstimo', key: 'empId', width: 15 },
-            { header: 'Cliente', key: 'cliente', width: 35 },
-            { header: 'Data Pagamento', key: 'data', width: 20 },
-            { header: 'Valor Pago', key: 'valor', width: 20 },
-            { header: 'Método', key: 'metodo', width: 20 },
-            { header: 'Referência', key: 'ref', width: 25 }
+            { header: 'N° TRANSAÇÃO', key: 'id', width: 18 },
+            { header: 'VÍNCULO EMP.', key: 'empId', width: 18 },
+            { header: 'BENEFICIÁRIO', key: 'cliente', width: 40 },
+            { header: 'DATA CRÉDITO', key: 'data', width: 20 },
+            { header: 'VALOR LIQUIDADO', key: 'valor', width: 22 },
+            { header: 'MODALIDADE', key: 'metodo', width: 22 },
+            { header: 'COMPROVANTE/REF', key: 'ref', width: 30 }
         ];
 
-        const pagHeader = sheetPag.getRow(1);
-        pagHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        pagHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1565C0' } };
-
+        setupProfessionalHeader(sheetPag, 'FF1565C0');
         todosPagamentos.forEach(p => {
             sheetPag.addRow({
                 id: `PAG-${p.pagamentoId}`,
@@ -1003,34 +1083,45 @@ export class RelatoriosService {
                 data: this.formatarData(p.dataPagamento),
                 valor: Number(p.valorPago),
                 metodo: p.metodoPagamento,
-                ref: p.referenciaPagamento || 'N/A'
+                ref: p.referenciaPagamento || '---'
             });
         });
-        sheetPag.getColumn('E').numFmt = '#,##0.00" MT"';
 
-        const sheetCli = workbook.addWorksheet('Base de Clientes');
+        applyZebraStriping(sheetPag);
+        sheetPag.getColumn('E').numFmt = '#,##0.00" MT"';
+        sheetPag.getColumn('E').alignment = { horizontal: 'right' };
+
+        // --- 4. ABA: CLIENTES ---
+        const sheetCli = workbook.addWorksheet('Dossier de Clientes');
         sheetCli.columns = [
-            { header: 'ID', key: 'id', width: 10 },
-            { header: 'Nome Completo', key: 'nome', width: 40 },
-            { header: 'Telefone', key: 'telefone', width: 20 },
-            { header: 'Província', key: 'provincia', width: 20 },
-            { header: 'Cidade', key: 'cidade', width: 20 },
-            { header: 'Data Cadastro', key: 'data', width: 20 }
+            { header: 'CÓDIGO', key: 'id', width: 12 },
+            { header: 'NOME COMPLETO', key: 'nome', width: 45 },
+            { header: 'CONTATO', key: 'telefone', width: 22 },
+            { header: 'PROVÍNCIA', key: 'provincia', width: 25 },
+            { header: 'CIDADE/DISTRITO', key: 'cidade', width: 25 },
+            { header: 'DATA ADMISSÃO', key: 'data', width: 20 }
         ];
 
-        const cliHeader = sheetCli.getRow(1);
-        cliHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        cliHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF455A64' } };
-
+        setupProfessionalHeader(sheetCli, 'FF455A64');
         todosClientes.forEach(c => {
             sheetCli.addRow({
                 id: c.clienteId,
-                nome: c.nome,
+                nome: c.nome.toUpperCase(),
                 telefone: c.telefone,
                 provincia: c.localizacao?.provincia || 'N/A',
                 cidade: c.localizacao?.cidade || 'N/A',
-                data: this.formatarData(c.dataCadastro)
+                data: this.formatarData(c.dataCadastro).split(',')[0]
             });
+        });
+
+        applyZebraStriping(sheetCli);
+
+        // --- AUTO FILTROS EM TUDO ---
+        [sheetEmp, sheetPag, sheetCli].forEach(s => {
+            s.autoFilter = {
+                from: { row: 1, column: 1 },
+                to: { row: 1, column: s.columns.length }
+            };
         });
 
         const buffer = await workbook.xlsx.writeBuffer();
